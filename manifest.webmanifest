@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Статика 2.0 — калистеника и дневник",
+  "short_name": "Статика",
+  "description": "12-недельный курс статической калистеники, таймеры и дневник тренировок",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c1624",
+  "theme_color": "#0c1624",
+  "icons": [
+    {"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
