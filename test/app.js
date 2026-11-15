@@ -1,7 +1,7 @@
 /* Статика: персональный тренажёр без сторонних JS-зависимостей.
  * Сессии работают без сети. Supabase Auth + PostgREST включаются после настройки.
  */
-const VERSION = '2.2.0';
+const VERSION = '2.3.0-rc1';
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = (n, min, max) => Math.min(max, Math.max(min, Number.isFinite(Number(n)) ? Number(n) : min));
@@ -251,6 +251,7 @@ function pauseResumeTimer(){
 function syncBadge(){
  if(!state.user)return {text:'На этом устройстве',cls:'local'};
  if(!navigator.onLine)return {text:'Без интернета',cls:'warn'};
+ if(state.user&&!navigator.onLine)return {text:'Нет сети · сохранено локально',cls:'warn'};
  return ({synced:{text:'Облако синхронизировано',cls:'good'},working:{text:'Синхронизация…',cls:'warn'},pending:{text:'Ожидает синхронизации',cls:'warn'},error:{text:'Ошибка синхронизации',cls:'bad'}})[state.syncStatus] || {text:'Ожидает синхронизации',cls:'warn'};
 }
 function updateSyncTag(){const e=$('#sync-status');if(e){const v=syncBadge();e.className=`sync-pill ${v.cls}`;e.textContent=v.text;}}
@@ -488,7 +489,7 @@ completedWeeks=function(){let n=0;for(let w=1;w<=12;w++){if([1,2,3].every(d=>sta
 function selectedPlan(){const s=currentSession();return s?plan(s.week,s.day):plan(v2.selected.week,v2.selected.day);}
 function selectedProgress(){const s=currentSession();return s?progress(s):{done:0,total:selectedPlan().items.reduce((n,e)=>n+countSlots(e),0),pct:0};}
 function clearMachine(){
- stopRecordedTrack();releaseScreenLock();
+ localStorage.removeItem('statika.v23.inflight');stopRecordedTrack();releaseScreenLock();
  if(v2.interval)clearInterval(v2.interval);v2.interval=null;v2.stage='idle';v2.stageBefore=null;v2.remaining=0;v2.lastCount=4;
 }
 function pauseMachine(){
@@ -555,11 +556,11 @@ function machinePhase(phase,duration){
 function prepCountdown(){speak('Приготовься');machinePhase('countdown',3);}
 function beginWork(){
  const ex=selectedPlan().items[state.exerciseIndex];beep('start');speak('Начали');
- if(ex.kind==='hold')machinePhase('hold',ex.target);else {machinePhase('reps',0);}
+ if(ex.kind==='hold'){safeWrite('statika.v23.inflight',{sessionId:currentSession()?.id||null,week:v2.selected.week,day:v2.selected.day,exercise:ex.id,slot:state.slotIndex,at:Date.now()});machinePhase('hold',ex.target);}else {machinePhase('reps',0);}
 }
 function persistSet(actual){
  const s=ensureSession(),ex=selectedPlan().items[state.exerciseIndex];const val=Math.round(num(actual,1,ex.kind==='hold'?300:100));
- const arr=Array.isArray(s.sets[ex.id])?[...s.sets[ex.id]]:[];arr[state.slotIndex]=val;s.sets[ex.id]=arr;touchSession(s);
+ const arr=Array.isArray(s.sets[ex.id])?[...s.sets[ex.id]]:[];arr[state.slotIndex]=val;s.sets[ex.id]=arr;localStorage.removeItem('statika.v23.inflight');touchSession(s);
  return val;
 }
 function endApproach(actual){
@@ -578,6 +579,7 @@ function machineTick(){
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
  const n=$('#v2-clock');if(n)n.textContent=String(Math.max(0,Math.ceil(v2.remaining)));
+ const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);}
 }
 function startApproaches(){
  if(!['idle','between'].includes(v2.stage))return;
@@ -635,13 +637,13 @@ function workout(){
  <h1 class="workout-name">${esc(p.title)}</h1><div class="workout-progress"><div class="meter"><span style="width:${pg.pct}%"></span></div><span>${pg.done}/${pg.total} подходов</span></div>
  <div class="exercise-strip">${p.items.map((item,i)=>{const arr=s?.sets?.[item.id]||[];const full=Array.from({length:countSlots(item)},(_,j)=>arr[j]).every(x=>x>0);return `<button data-v2-ex="${i}" class="exercise-node ${i===state.exerciseIndex?'current':''} ${full?'completed':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled title="Сначала остановите таймер"':''}>${full?'✓':i+1}</button>`;}).join('')}</div>
  <article class="workout-card v2-workout"><div class="exercise-count">УПРАЖНЕНИЕ ${state.exerciseIndex+1} ИЗ ${p.items.length}</div><h2>${esc(data.name)}</h2><p class="exercise-prescription">${amountLabel(ex)}</p>
- <button class="micro-learn" data-v2-action="study-current">◈ Как делать правильно <span>→</span></button>
+ <div class="v23-tech"><button class="v23-tech-photo" data-v2-action="study-current" aria-label="Открыть подробную технику">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready'}.webp" alt="Активный вис: ${v2.stage==='hold'?'фиксация':v2.stage==='rest'?'отдых':'подготовка'}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button><div class="v23-tech-caption"><span id="v23-tech-label">${ex.id==='hang'?(v2.stage==='hold'?'Лопатки вниз · локти прямые':v2.stage==='rest'?'Отдых между подходами':'Свободный вис · плечи расслаблены'):esc(data.cue)}</span><button data-v2-action="study-current" aria-label="Подробная техника">ⓘ</button></div></div>
  <div class="set-row">${Array.from({length:count},(_,i)=>`<button data-v2-slot="${i}" class="set-pill ${a[i]>0?'recorded':''} ${i===state.slotIndex?'active':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled':''} title="${slotLabel(ex,i)}">${a[i]>0?'✓ ':''}${i+1}${a[i]>0?' · '+a[i]:''}</button>`).join('')}</div>
  <div class="current-set">${slotLabel(ex,state.slotIndex)} ${a[state.slotIndex]>0?'· записан':''}</div>
  <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><p class="v2-hint">${summary}</p><div class="v2-controls">${controls}</div></section>
- <div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
+ <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
- <details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
+ </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
  </article>
  <section class="feelings"><h3>Самочувствие и заметки</h3><label for="mood">Как ощущалась нагрузка?</label><select id="mood" data-field="mood"><option value="" ${!s?.mood?'selected':''}>Не выбрано</option><option value="easy" ${s?.mood==='easy'?'selected':''}>Легко</option><option value="normal" ${s?.mood==='normal'?'selected':''}>Нормально</option><option value="hard" ${s?.mood==='hard'?'selected':''}>Тяжело</option></select><label for="notes">Комментарии</label><textarea id="notes" data-field="notes" maxlength="4000" rows="2" placeholder="Например: держал корпус стабильно, но быстро устали предплечья…">${esc(s?.notes||'')}</textarea></section>
  ${!v2.historyReview?`<button class="btn btn-finish btn-wide" data-v2-action="finish">${pg.done===pg.total?'✓ Завершить тренировку':'Завершить и сохранить частично'} (${pg.done}/${pg.total})</button>`:`<button class="btn btn-outline btn-wide" data-nav="history">← Вернуться в дневник</button>`}
@@ -651,7 +653,7 @@ function learning(){
  const id=LIB[v2.studyId]?v2.studyId:'side';const ex=LIB[id];
  return `${heading('РЕЖИМ ОБУЧЕНИЯ','Правильная техника','Выбери упражнение, посмотри схему положения тела и разбери частые ошибки. Это схематичные подсказки, а не видеоинструкция.')}
  <div class="study-library">${Object.entries(LIB).map(([k,x])=>`<button data-v2-study="${k}" class="${id===k?'selected':''}">${esc(x.name)}</button>`).join('')}</div>
- <article class="learn-card"><div class="eyebrow">${ex.kind==='hold'?'СТАТИЧЕСКОЕ УДЕРЖАНИЕ':'ДВИЖЕНИЕ НА ПОВТОРЕНИЯ'}</div><h2>${esc(ex.name)}</h2><div class="diagram" aria-label="Схема упражнения">${window.StaticDiagram?window.StaticDiagram(id,v2.studyBad):'<p>Визуальная схема недоступна</p>'}<span class="diagram-badge ${v2.studyBad?'wrong':''}">${v2.studyBad?'× Частая ошибка':'✓ Положение тела'}</span></div>
+ <article class="learn-card"><div class="eyebrow">${ex.kind==='hold'?'СТАТИЧЕСКОЕ УДЕРЖАНИЕ':'ДВИЖЕНИЕ НА ПОВТОРЕНИЯ'}</div><h2>${esc(ex.name)}</h2><div class="diagram" aria-label="Схема упражнения">${id==='hang'?'<img class="v23-learn-photo" src="./media/hang-sequence.webp" alt="Активный вис: отдых, свободный вис, активный вис; сравнительная последовательность">':''}${window.StaticDiagram?window.StaticDiagram(id,v2.studyBad):'<p>Визуальная схема недоступна</p>'}<span class="diagram-badge ${v2.studyBad?'wrong':''}">${v2.studyBad?'× Частая ошибка':'✓ Положение тела'}</span></div>
  <div class="diagram-switch"><button data-v2-scene="correct" class="${v2.studyBad?'':'selected'}">✓ Правильно</button><button data-v2-scene="wrong" class="${v2.studyBad?'selected wrong':''}">× Ошибки</button></div>
  <div class="study-grid"><div class="coaching"><strong>Как делать</strong><p>${esc(ex.instruction)}</p><div class="coaching-cue">✓ ${esc(ex.cue)}</div></div><div class="coaching"><strong>Чего избегать</strong><ul>${(ERRORS[id]||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div>
  <details class="v2-fallback"><summary>Если сложно — облегчённый вариант</summary><p>${esc(ex.fallback)}</p></details>
@@ -690,7 +692,7 @@ function history(){
 const oldShell=shell;
 shell=function(content){
  const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['learn','Обучение','◈'],['history','Дневник','▥'],['account','Аккаунт','◉']];
- return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.2</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
+ return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());};
 navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
@@ -699,7 +701,7 @@ navigate=function(screen){if(!['home','plan','workout','learn','history','accoun
 };
 finishWorkout=function(){const s=currentSession(),pg=selectedProgress();if(!s||pg.done===0){toast('Нет записанных подходов. Для просмотра завершать тренировку не нужно.');return;}
  if(pg.done<pg.total&&!confirm(`Выполнено ${pg.done} из ${pg.total} подходов. Сохранить как «Выполнено частично»?`))return;
- s.completed=true;touchSession(s);clearMachine();state.activeId=null;v2.historyReview=false;navigate('history');toast(pg.done===pg.total?'Тренировка выполнена полностью.':'Частичная тренировка сохранена.');
+ s.completed=pg.done===pg.total;touchSession(s);clearMachine();state.activeId=null;v2.historyReview=false;navigate('history');toast(pg.done===pg.total?'Тренировка выполнена полностью.':'Частичная тренировка сохранена.');
 };
 // События захватываются до обработчиков версии 1.0, чтобы поведение было единым.
 document.addEventListener('click',ev=>{

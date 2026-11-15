@@ -102,6 +102,7 @@ function reconcileRecordedTrack(checkStall=false){
    redraw=true;
   }else if(event.type==='phase'){
    if(v2.stage!==event.phase)redraw=true;
+   if(event.phase==='hold'){const ex=selectedPlan().items[state.exerciseIndex];safeWrite('statika.v23.inflight',{sessionId:currentSession()?.id||null,week:v2.selected.week,day:v2.selected.day,exercise:ex.id,slot:event.slot,at:Date.now()});}
    v2.stage=event.phase;v2.stageBefore=null;
    v2.duration=Math.max(0,event.end-event.at);
    v2.remaining=Math.max(0,event.end-effectiveTime);
