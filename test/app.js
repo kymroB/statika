@@ -576,7 +576,7 @@ function machineTick(){
   if(v2.remaining<=0){beginWork();return;}
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
- const n=$('#v2-clock');if(n)n.textContent=String(Math.max(0,Math.ceil(v2.remaining)));updateV24Progress();
+ const n=$('#v2-clock');if(n)n.textContent='00:'+String(Math.max(0,Math.ceil(v2.remaining))).padStart(2,'0');updateV24Progress();
  const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
 }
 function updateV24Progress(){
@@ -638,18 +638,24 @@ function workout(){
    }
  }
  if(v2.historyReview)controls='<div class="subtle-card">Открыта запись дневника. Можно исправить результат любого подхода ниже.</div>';
- return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">← ${v2.historyReview?'К дневнику':v2.origin==='plan'?'К программе':'На главную'}</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
- <div class="workout-compact-title">${esc(p.title)}</div><div class="workout-progress"><div class="meter"><span style="width:${pg.pct}%"></span></div><span>${pg.done}/${pg.total} подходов</span></div>
- <div class="exercise-strip">${p.items.map((item,i)=>{const arr=s?.sets?.[item.id]||[];const full=Array.from({length:countSlots(item)},(_,j)=>arr[j]).every(x=>x>0);return `<button data-v2-ex="${i}" class="exercise-node ${i===state.exerciseIndex?'current':''} ${full?'completed':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled title="Сначала остановите таймер"':''}>${full?'✓':i+1}</button>`;}).join('')}</div>
- <article class="workout-card v2-workout"><div class="exercise-count">УПРАЖНЕНИЕ ${state.exerciseIndex+1} ИЗ ${p.items.length}</div><h2>${esc(data.name)}</h2><p class="exercise-prescription">${amountLabel(ex)}</p>
- <div class="v23-tech"><button class="v23-tech-photo" data-v2-action="study-current" aria-label="Открыть подробную технику">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready'}.webp" alt="Активный вис: ${v2.stage==='hold'?'фиксация':v2.stage==='rest'?'отдых':'подготовка'}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button><div class="v23-tech-caption"><span id="v23-tech-label">${ex.id==='hang'?(v2.stage==='hold'?'Лопатки вниз · локти прямые':v2.stage==='rest'?'Отдых между подходами':'Свободный вис · плечи расслаблены'):esc(data.cue)}</span><button data-v2-action="study-current" aria-label="Подробная техника">ⓘ</button></div></div>
- <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div><div class="v2-controls">${controls}</div><p class="v2-hint">${summary}</p></section>
+ const active=['countdown','hold','rest'].includes(v2.stage);
+ const stagePhoto=v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready';
+ const phaseLabel=ex.id==='hang'?(stagePhoto==='active'?'Лопатки вниз · локти прямые':stagePhoto==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены'):esc(data.cue);
+ const firstAction=controls;
+ return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">← К программе</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
+ <div class="rc5-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><span class="rc5-ex-index">${state.exerciseIndex+1} из ${p.items.length}</span></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span><span class="rc5-dots">${p.items.map((_,i)=>`<button data-v2-ex="${i}" class="${i===state.exerciseIndex?'on':''}" aria-label="Упражнение ${i+1}" ${active?'disabled':''}></button>`).join('')}</span></div></div>
+ <article class="workout-card v2-workout rc5-workout">
+ <div class="v23-tech"><button class="v23-tech-photo" data-rc5="tech" aria-label="Открыть технику упражнения">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${stagePhoto}.webp" alt="${esc(data.name)}: ${stagePhoto}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button></div>
+ <div class="rc5-caption"><span id="v23-tech-label">${phaseLabel}</span><span>${state.exerciseIndex+1} / ${p.items.length}</span></div>
+ <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':String(digits).padStart(2,'0').replace(/^(\d\d)$/,'00:$1')}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
+ <div class="rc5-actions"><button data-rc5="sound" aria-label="${v2.sound?'Выключить':'Включить'} звук">${v2.sound?'◖))':'◖×'}</button><button data-rc5="tech" aria-label="Техника упражнения">ⓘ</button><button data-rc5="menu" aria-label="Дополнительные действия">•••</button></div>
+ <div class="rc5-advanced" id="rc5-advanced">
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
  </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
  <div class="set-row">${Array.from({length:count},(_,i)=>`<button data-v2-slot="${i}" class="set-pill ${a[i]>0?'recorded':''} ${i===state.slotIndex?'active':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled':''} title="${slotLabel(ex,i)}">${a[i]>0?'✓ ':''}${i+1}${a[i]>0?' · '+a[i]:''}</button>`).join('')}</div>
  <div class="current-set">${slotLabel(ex,state.slotIndex)} ${a[state.slotIndex]>0?'· записан':''}</div>
- </article>
+ </div></article>
  <section class="feelings"><h3>Самочувствие и заметки</h3><label for="mood">Как ощущалась нагрузка?</label><select id="mood" data-field="mood"><option value="" ${!s?.mood?'selected':''}>Не выбрано</option><option value="easy" ${s?.mood==='easy'?'selected':''}>Легко</option><option value="normal" ${s?.mood==='normal'?'selected':''}>Нормально</option><option value="hard" ${s?.mood==='hard'?'selected':''}>Тяжело</option></select><label for="notes">Комментарии</label><textarea id="notes" data-field="notes" maxlength="4000" rows="2" placeholder="Например: держал корпус стабильно, но быстро устали предплечья…">${esc(s?.notes||'')}</textarea></section>
  ${!v2.historyReview?`<button class="btn btn-finish btn-wide" data-v2-action="finish">${pg.done===pg.total?'✓ Завершить тренировку':'Завершить и сохранить частично'} (${pg.done}/${pg.total})</button>`:`<button class="btn btn-outline btn-wide" data-nav="history">← Вернуться в дневник</button>`}
  <p class="fine-print center">В режиме «Экран включён» переход в другой раздел ставит таймер на паузу. Режим с выключенным экраном экспериментальный: если браузер остановит аудио, приложение предложит возобновить его после возврата. При завершении упражнения потребуется вручную запустить следующее.</p>`;
@@ -670,7 +676,7 @@ function home(){
  return `${heading('МОЯ ТРЕНИРОВОЧНАЯ ПРОГРАММА','Сильнее. Спокойнее. Точнее.','12 недель калистеники. Обучение технике и тренировки с автоматическим отсчётом.')}
  <section class="hero"><div class="hero-tag">ТЕКУЩИЙ ЭТАП</div><h2>Неделя ${w} <span>/ 12</span></h2><div class="hero-sub">${esc(PHASES.find(p=>w>=p.from&&w<=p.to).label)} · 3 занятия в неделю</div><div class="meter"><span style="width:${Math.round(weeks/12*100)}%"></span></div><div class="hero-footer"><span>${weeks} из 12 недель полностью пройдено</span><span>${Math.round(weeks/12*100)}%</span></div></section>
  <div class="two-stats"><div class="stat"><div class="stat-value">${done}</div><div class="stat-label">Сессий завершено</div></div><div class="stat"><div class="stat-value">${Math.round(unique/36*100)}%</div><div class="stat-label">Из 36 занятий закрыто</div></div></div>
- <div class="v2-mode-cards"><button data-nav="learn"><span>◈</span><strong>Обучение</strong><small>Положение тела, ошибки и облегчения</small></button><button data-nav="plan"><span>▦</span><strong>Программа</strong><small>Все 12 недель и 36 занятий</small></button></div>
+ <div class="v2-mode-cards"><button data-nav="plan"><span>▦</span><strong>Программа</strong><small>Все 12 недель и 36 занятий</small></button></div>
  <div class="section-title"><h2>Неделя ${w}</h2><button class="text-link" data-nav="plan">Все недели ↗</button></div><div class="day-list">${[1,2,3].map(d=>{const p=plan(w,d),st=statusOf(w,d);return `<button class="day-card" data-start="${w}:${d}"><div class="day-num">0${d}</div><div class="day-info"><strong>${esc(p.title)}</strong><span>${esc(p.subtitle)}</span><div class="day-meta">${p.items.length} упражнений · 25–35 мин</div></div><span class="state-label ${st.kind==='full'?'finished':''}">${st.label} →</span></button>`;}).join('')}</div>
  <div class="note-card"><strong>Как устроена автоматическая тренировка</strong><p>Начни упражнение вручную. Затем приложение отсчитает 3–2–1 и проведёт подходы с отдыхом. Следующее упражнение включается только по твоей команде.</p></div>`;
 }
@@ -696,8 +702,8 @@ function history(){
 }
 const oldShell=shell;
 shell=function(content){
- const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['learn','Обучение','◈'],['history','Дневник','▥'],['account','Аккаунт','◉']];
- return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC4</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
+ const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['history','Дневник','▥'],['account','Аккаунт','◉']];
+ return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC5</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());};
 navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
@@ -709,6 +715,36 @@ finishWorkout=function(){const s=currentSession(),pg=selectedProgress();if(!s||p
  s.completed=pg.done===pg.total;touchSession(s);clearMachine();state.activeId=null;v2.historyReview=false;navigate('history');toast(pg.done===pg.total?'Тренировка выполнена полностью.':'Частичная тренировка сохранена.');
 };
 // События захватываются до обработчиков версии 1.0, чтобы поведение было единым.
+function rc5Close(){document.getElementById('rc5-modal')?.remove();}
+function rc5Modal(title,body){rc5Close();const el=document.createElement('div');el.id='rc5-modal';el.className='rc5-modal';el.innerHTML=`<div class="rc5-scrim" data-rc5-close></div><section class="rc5-sheet" role="dialog" aria-modal="true" aria-label="${title}"><header><strong>${title}</strong><button data-rc5-close aria-label="Закрыть">×</button></header>${body}</section>`;document.body.appendChild(el);document.body.classList.add('rc5-modal-open');el.querySelector('[data-rc5-close]')?.focus();}
+function rc5Dismiss(){rc5Close();document.body.classList.remove('rc5-modal-open');}
+function rc5Tech(tab='ready'){
+ const ex=selectedPlan().items[state.exerciseIndex],data=LIB[ex.id];
+ const tabs=[['rest','Отдых'],['ready','Старт'],['active','Фиксация']];
+ const photo=ex.id==='hang'?`<img src="./media/hang-${tab}.webp" alt="${tab}">`:`<div class="rc5-modal-diagram">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`;
+ const copy=tab==='rest'?'Естественное расслабленное положение между подходами.':tab==='ready'?'Подготовься к упражнению, проверь опору и положение тела.':esc(data.instruction);
+ rc5Modal('Техника · '+esc(data.name),`<div class="rc5-tabs">${tabs.map(([key,label])=>`<button data-rc5-tab="${key}" class="${key===tab?'selected':''}">${label}</button>`).join('')}</div><div class="rc5-modal-photo">${photo}</div><h3>${tabs.find(x=>x[0]===tab)[1]}</h3><p>${copy}</p><p class="rc5-cue">${esc(data.cue)}</p><details><summary>Частые ошибки и облегчение</summary><ul>${(ERRORS[ex.id]||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(data.fallback)}</p></details>`);
+}
+function rc5Menu(){
+ const advanced=document.getElementById('rc5-advanced');
+ rc5Modal('Действия',`<div class="rc5-menu-actions"><button data-rc5="settings">⚙ Настройки тренировки <span>›</span></button><button data-rc5="edit">✎ Исправить результат <span>›</span></button><button data-rc5="finish">⚑ Завершить тренировку <span>›</span></button></div>`);
+}
+document.addEventListener('click',ev=>{
+ const b=ev.target.closest('[data-rc5],[data-rc5-close],[data-rc5-tab]');if(!b)return;
+ if(b.hasAttribute('data-rc5-close')){rc5Dismiss();return;}
+ if(b.dataset.rc5Tab){rc5Tech(b.dataset.rc5Tab);return;}
+ switch(b.dataset.rc5){
+ case 'tech':if(['countdown','hold','rest'].includes(v2.stage))pauseMachine();rc5Tech(v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready');break;
+ case 'menu':rc5Menu();break;
+ case 'sound':if(['countdown','hold','rest'].includes(v2.stage)){toast('Звук можно изменить после остановки отсчёта.');break;}v2.sound=!v2.sound;updateMachineSettings();render();break;
+ case 'settings':case 'edit':{
+   const selector=b.dataset.rc5==='settings'?'.v23-settings':'.v2-edit';const source=document.querySelector('#rc5-advanced '+selector);
+   const html=source?source.innerHTML:'Настройки недоступны';rc5Modal(b.dataset.rc5==='settings'?'Настройки тренировки':'Исправить результат',`<div class="rc5-modal-settings">${html}</div>`);break;
+ }
+ case 'finish':rc5Dismiss();finishWorkout();break;
+ }
+},false);
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape')rc5Dismiss();});
 document.addEventListener('click',ev=>{
  const b=ev.target.closest('[data-v2-action],[data-v2-ex],[data-v2-slot],[data-v2-study],[data-v2-scene],[data-open-session]');if(!b)return;
  ev.preventDefault();ev.stopImmediatePropagation();

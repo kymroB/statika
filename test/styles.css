@@ -136,3 +136,49 @@ body:has(.v2-workout) .v23-settings{border:0!important;border-top:1px solid #363
 body:has(.v2-workout) .v2-edit{background:transparent!important;border:0!important;border-top:1px solid #36393a!important;border-radius:0!important;padding:12px 0!important}
 body:has(.v2-workout) .set-row{margin-top:12px!important}
 @media(max-height:760px){body:has(.v2-workout) .v23-tech-photo img{height:clamp(130px,23dvh,190px)!important}body:has(.v2-workout) .exercise-strip{margin-bottom:5px!important}}
+/* RC5 — approved compact editorial workout composition */
+body:has(.rc5-workout) .main{padding:10px 16px 22px!important}
+body:has(.rc5-workout) .topbar{height:48px}
+body:has(.rc5-workout) .workout-top{margin:0 0 13px!important}
+.rc5-heading{margin-bottom:12px}
+.rc5-overline{font-size:10px;letter-spacing:.12em;font-weight:750;color:#bfc1c0}
+.rc5-titleline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}
+.rc5-titleline h1{font-size:clamp(26px,7.5vw,35px);line-height:1.1;letter-spacing:-.045em;margin:0;font-weight:780}
+.rc5-ex-index{white-space:nowrap;border:1px solid #454a4a;border-radius:30px;padding:5px 9px;font-size:11px;color:#e0e1e0}
+.rc5-subline{display:flex;justify-content:space-between;align-items:center;color:#c1c4c3;font-size:12px;margin-top:8px}
+.rc5-dots{display:flex;gap:5px}.rc5-dots button{border:0;background:#555a59;border-radius:50%;width:7px;height:7px;padding:0}.rc5-dots button.on{background:#86ddca}
+body:has(.rc5-workout) .rc5-workout{padding:0!important;margin:0!important}
+body:has(.rc5-workout) .v23-tech{margin:0!important;border-radius:16px!important;overflow:hidden;background:transparent!important}
+body:has(.rc5-workout) .v23-tech-photo{border:0!important;padding:0!important;width:100%;display:block;background:transparent!important}
+body:has(.rc5-workout) .v23-tech-photo img{display:block;width:100%;height:clamp(190px,34dvh,320px)!important;object-fit:contain!important;object-position:center!important;background:#202123!important}
+.rc5-caption{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 15px;font-size:11px;color:#d0d1cf}
+.rc5-caption span:last-child{white-space:nowrap;color:#86ddca}
+body:has(.rc5-workout) .rc5-machine{position:relative;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto 5px!important;gap:9px 14px!important;background:#202123!important;border:0!important;border-radius:19px!important;padding:18px!important;margin:0!important;align-items:center}
+body:has(.rc5-workout) .rc5-machine>.eyebrow{grid-column:1/-1!important;grid-row:1!important;font-size:13px!important;letter-spacing:0!important;font-weight:500!important;color:#83cfc0!important;text-transform:none!important}
+body:has(.rc5-workout) .rc5-machine .v2-digits{grid-column:1!important;grid-row:2!important;margin:0!important;min-width:0}
+body:has(.rc5-workout) .rc5-machine .v2-digits strong{font-size:clamp(36px,10vw,53px)!important;letter-spacing:-.04em;line-height:1.05;color:#92e5d0!important;font-weight:650}
+body:has(.rc5-workout) .rc5-machine .v2-controls{grid-column:2!important;grid-row:2!important;margin:0!important;display:flex!important;flex-direction:column;gap:6px!important;min-width:0}
+body:has(.rc5-workout) .rc5-machine .v2-controls .btn{min-height:51px!important;min-width:110px;max-width:160px;width:auto!important;border:0!important;border-radius:15px!important;background:#8de3cf!important;color:#152725!important;font-size:clamp(13px,3.8vw,17px)!important;padding:9px 15px!important;font-weight:600!important;line-height:1.1}
+body:has(.rc5-workout) .rc5-machine .v2-controls .btn-muted{background:#333738!important;color:#f2f2f2!important;min-height:35px!important;font-size:11px!important}
+body:has(.rc5-workout) .rc5-machine .v24-timeline{grid-column:1/-1!important;grid-row:3!important;height:5px!important;background:#424b4c!important;margin:0!important}
+body:has(.rc5-workout) .rc5-machine .v2-hint{display:none!important}
+.rc5-actions{display:flex;justify-content:center;gap:18px;margin:17px 0 5px}
+.rc5-actions button{width:38px;height:38px;border:1px solid #4c5555;border-radius:50%;background:transparent;color:#e8edeb;font-size:18px;display:grid;place-items:center}
+.rc5-advanced{display:none!important}
+body:has(.rc5-workout) .feelings,body:has(.rc5-workout) .btn-finish,body:has(.rc5-workout) .fine-print.center{display:none!important}
+body:has(.rc5-workout) .bottom-nav{padding:8px 3px calc(8px + env(safe-area-inset-bottom))!important}
+.rc5-modal{position:fixed;inset:0;z-index:150;display:flex;align-items:flex-end;justify-content:center}
+.rc5-scrim{position:absolute;inset:0;background:#000b}
+.rc5-sheet{position:relative;width:100%;max-width:620px;max-height:min(82dvh,850px);overflow:auto;border-radius:24px 24px 0 0;padding:18px 20px calc(22px + env(safe-area-inset-bottom));background:#252729;color:#f4f5f3;box-shadow:0 -15px 60px #0009}
+.rc5-sheet>header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;font-size:17px}
+.rc5-sheet>header button{border:0;background:transparent;color:#eee;font-size:30px;padding:0 6px}
+.rc5-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;background:#34383a;border-radius:12px;padding:4px;margin-bottom:16px}
+.rc5-tabs button{border:0;border-radius:10px;background:transparent;color:#d7d9d7;padding:11px 5px;font-size:13px}
+.rc5-tabs button.selected{background:#8de3cf;color:#162522;font-weight:700}
+.rc5-modal-photo img{width:100%;max-height:38dvh;object-fit:contain;background:#1b1c1d;border-radius:14px}
+.rc5-modal-diagram{min-height:170px}.rc5-sheet h3{font-size:17px;margin:16px 0 6px}.rc5-sheet p,.rc5-sheet li{font-size:13px;line-height:1.55;color:#d1d5d3}
+.rc5-cue{color:#a0e7d5!important}
+.rc5-menu-actions{display:grid}.rc5-menu-actions button{background:transparent;border:0;border-bottom:1px solid #404445;color:#eee;text-align:left;padding:18px 6px;font-size:14px;display:flex;justify-content:space-between}
+.rc5-modal-settings .screen-mode-card{margin:0}.rc5-modal-settings .record-line{display:flex;gap:10px;flex-wrap:wrap}
+.rc5-modal-open{overflow:hidden}
+@media(max-height:740px){body:has(.rc5-workout) .v23-tech-photo img{height:clamp(160px,29dvh,240px)!important}.rc5-caption{margin:6px 0 9px}body:has(.rc5-workout) .rc5-machine{padding:13px!important}.rc5-actions{margin:9px 0 0}}
