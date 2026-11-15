@@ -2,7 +2,8 @@
  * Сессии работают без сети. Supabase Auth + PostgREST включаются после настройки.
  */
 const VERSION = self.STATIKA_VERSION;
-const rc7Time = seconds => String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+const rc7Time = seconds => {const n=Math.max(0,Math.floor(Number(seconds)||0));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
+const rc72Clock = (phase,remaining,duration) => phase==='countdown' ? '-'+rc7Time(Math.max(0,Math.ceil(remaining))) : phase==='hold' ? rc7Time(Math.min(duration,Math.floor(Math.max(0,duration-remaining)))) : rc7Time(Math.max(0,Math.ceil(remaining)));
 let rc7PickerOpen=false;
 let rc7SheetParent=null;
 const rc7Icon=(name)=>({sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a5 5 0 0 1 0 6M18 6a9 9 0 0 1 0 12"/></svg>',mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6m0-6-5 6"/></svg>',info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8v.2"/></svg>',more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>'})[name];
@@ -568,7 +569,7 @@ function machinePhase(phase,duration){
  if(['countdown','hold','rest'].includes(phase)){v2.interval=setInterval(machineTick,100);machineTick();}
  if(state.screen==='workout')render();
 }
-function prepCountdown(){speak('Приготовься');machinePhase('countdown',3);}
+function prepCountdown(){machinePhase('countdown',6);speak('Приготовься');}
 function beginWork(){
  const ex=selectedPlan().items[state.exerciseIndex];beep('start');speak('Начали');
  if(ex.kind==='hold'){safeWrite('statika.v23.inflight',{sessionId:currentSession()?.id||null,week:v2.selected.week,day:v2.selected.day,exercise:ex.id,slot:state.slotIndex,at:Date.now()});machinePhase('hold',ex.target);}else {machinePhase('reps',0);}
@@ -593,7 +594,7 @@ function machineTick(){
   if(v2.remaining<=0){beginWork();return;}
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
- const n=$('#v2-clock');if(n)n.textContent=rc7Time(Math.max(0,Math.ceil(v2.remaining)));updateV24Progress();
+ const n=$('#v2-clock');if(n)n.textContent=rc72Clock(v2.stage,v2.remaining,v2.duration);updateV24Progress();
  const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
 }
 function updateV24Progress(){
@@ -606,7 +607,7 @@ function updateV24Progress(){
 function startApproaches(){
  if(!['idle','between'].includes(v2.stage))return;
  v2.historyReview=false;const ex=selectedPlan().items[state.exerciseIndex];
- if(ex.kind==='hold')return startRecordedTrack();
+ if(ex.kind==='hold'&&bg2.mode==='locked')return startRecordedTrack();
  audioInit();if(bg2.mode==='awake')requestScreenLock();prepCountdown();
 }
 function resumeMachine(){
@@ -641,7 +642,8 @@ function workout(){
  const a=s?.sets?.[ex.id]||[],count=countSlots(ex),isDone=count&&Array.from({length:count},(_,i)=>a[i]).every(x=>x>0);
  const atEnd=v2.stage==='between'||v2.stage==='done',canStart=v2.stage==='idle';
  const summary=v2.stage==='countdown'?'После сигнала начинай подход.':v2.stage==='hold'?'Сохраняй технику и спокойное дыхание.':v2.stage==='rest'?'Отдых идёт автоматически. Следующий подход начнётся после 3–2–1.':v2.stage==='reps'?'Выполни повторения без спешки. Затем отметь подход.':v2.stage==='paused'?'Тренировка на паузе. Отсчёт продолжится по кнопке.':atEnd?'Переход к другому упражнению только вручную.':'Нажми «Начать». Остальные подходы упражнения пойдут автоматически.';
- const digits=['countdown','hold','rest','paused'].includes(v2.stage)?String(Math.max(0,Math.ceil(v2.remaining))):ex.kind==='reps'?String(ex.target):String(ex.target);
+ const displayPhase=v2.stage==='paused'?(v2.stageBefore||'countdown'):v2.stage;
+ const digits=['countdown','hold','rest','paused'].includes(v2.stage)?rc72Clock(displayPhase,v2.remaining,v2.duration):rc7Time(ex.target);
  let controls='';
  if(canStart&&!v2.historyReview)controls=`<button class="btn btn-primary btn-wide" data-v2-action="start">Начать</button>`;
  if(['countdown','hold','rest'].includes(v2.stage))controls=`<button class="btn btn-outline" data-v2-action="pause">Ⅱ Пауза</button>${v2.stage==='hold'?'<button class="btn btn-muted" data-v2-action="early">Завершить раньше</button>':''}`;
@@ -664,7 +666,7 @@ function workout(){
  <article class="workout-card v2-workout rc5-workout ${v2.historyReview?'rc7-history-review':''}">
  <div class="v23-tech"><button class="v23-tech-photo" data-rc5="tech" aria-label="Открыть технику упражнения">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${stagePhoto}.webp" alt="${esc(data.name)}: ${stagePhoto}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button></div>
  <div class="rc5-caption"><span id="v23-tech-label">${phaseLabel}</span><span>${state.exerciseIndex+1} / ${p.items.length}</span></div>
- <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':rc7Time(Number(digits))}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
+ <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':digits}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
  <div class="rc5-actions"><button data-rc5="sound" aria-label="${v2.sound?'Выключить':'Включить'} звук">${rc7Icon(v2.sound?'sound':'mute')}</button><button data-rc5="tech" aria-label="Техника упражнения">${rc7Icon('info')}</button><button data-rc5="menu" aria-label="Дополнительные действия">${rc7Icon('more')}</button></div>
  <div class="rc5-advanced" id="rc5-advanced">
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>

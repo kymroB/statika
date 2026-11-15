@@ -57,8 +57,8 @@ function buildExerciseAudio(ex,slots){
  const times=[];
  for(let i=0;i<slots.length;i++){
   const slot=slots[i],last=i===slots.length-1,prepareTime=t;
-  const pre=ex.sides===2?3:1.5, countStart=t+pre;
-  const holdStart=countStart+3,holdEnd=holdStart+ex.target;
+  const pre=0, countStart=t+pre;
+  const holdStart=countStart+6,holdEnd=holdStart+ex.target;
   events.push({at:prepareTime,type:'phase',phase:'countdown',end:holdStart,slot});
   events.push({at:holdStart,type:'phase',phase:'hold',end:holdEnd,slot});
   events.push({at:holdEnd,type:'complete',slot,target:ex.target});
@@ -76,7 +76,7 @@ function buildExerciseAudio(ex,slots){
  }
  for(const x of times){
   // Три высоких коротких сигнала перед упражнением; отдельный стартовый сигнал.
-  for(let j=0;j<3;j++)tone(x.countStart+j,850,.18,.15);
+  for(let j=0;j<3;j++)tone(x.holdStart-3+j,850,.18,.15);
   tone(x.holdStart,1300,.25,.28);
   // Окончание удержания: два низких сигнала. При полном завершении упражнения — три.
   tone(x.holdEnd,530,.23,.30);tone(x.holdEnd+.38,530,.23,.30);
@@ -134,7 +134,7 @@ function reconcileRecordedTrack(checkStall=false){
  }
  if(redraw&&state.screen==='workout'&&!document.hidden)render();
  else if(state.screen==='workout'&&!document.hidden){
-  const el=document.getElementById('v2-clock');if(el)el.textContent=String(Math.ceil(v2.remaining));
+  const el=document.getElementById('v2-clock');if(el)el.textContent=rc72Clock(v2.stage,v2.remaining,v2.duration);
  }
 }
 function setupMediaSession(ex){
