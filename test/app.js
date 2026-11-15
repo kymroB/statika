@@ -535,10 +535,10 @@ function russianVoice(){
  return voices.find(x=>/^ru([-_]|$)/i.test(x.lang||'')) || null;
 }
 function voiceAvailability(){
- return russianVoice()?'Найден русский голос устройства. Речь проверяется при включённом экране.':'Русский голос устройства пока не найден. Используй чёткие звуковые сигналы: роботизированная озвучка удалена.';
+ return russianVoice()?'Русский голос доступен, но во время аудиотаймера отключён во избежание пауз на iPhone. Звуковые сигналы сохраняются.':'Русский голос устройства не найден. Используй звуковые сигналы.';
 }
 function speak(text){
- if(!v2.voice||bg2.mode==='locked')return false;
+ if(!v2.voice||bg2.mode==='locked'||bg2.player)return false; // iOS: TTS can interrupt the timing audio track
  const voice=russianVoice();if(!voice)return false;
  try{
   const speech=new SpeechSynthesisUtterance(text);
@@ -579,7 +579,7 @@ function machineTick(){
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
  const n=$('#v2-clock');if(n)n.textContent=String(Math.max(0,Math.ceil(v2.remaining)));
- const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);}
+ const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
 }
 function startApproaches(){
  if(!['idle','between'].includes(v2.stage))return;
@@ -634,13 +634,13 @@ function workout(){
  }
  if(v2.historyReview)controls='<div class="subtle-card">Открыта запись дневника. Можно исправить результат любого подхода ниже.</div>';
  return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">← ${v2.historyReview?'К дневнику':v2.origin==='plan'?'К программе':'На главную'}</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
- <h1 class="workout-name">${esc(p.title)}</h1><div class="workout-progress"><div class="meter"><span style="width:${pg.pct}%"></span></div><span>${pg.done}/${pg.total} подходов</span></div>
+ <div class="workout-compact-title">${esc(p.title)}</div><div class="workout-progress"><div class="meter"><span style="width:${pg.pct}%"></span></div><span>${pg.done}/${pg.total} подходов</span></div>
  <div class="exercise-strip">${p.items.map((item,i)=>{const arr=s?.sets?.[item.id]||[];const full=Array.from({length:countSlots(item)},(_,j)=>arr[j]).every(x=>x>0);return `<button data-v2-ex="${i}" class="exercise-node ${i===state.exerciseIndex?'current':''} ${full?'completed':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled title="Сначала остановите таймер"':''}>${full?'✓':i+1}</button>`;}).join('')}</div>
  <article class="workout-card v2-workout"><div class="exercise-count">УПРАЖНЕНИЕ ${state.exerciseIndex+1} ИЗ ${p.items.length}</div><h2>${esc(data.name)}</h2><p class="exercise-prescription">${amountLabel(ex)}</p>
  <div class="v23-tech"><button class="v23-tech-photo" data-v2-action="study-current" aria-label="Открыть подробную технику">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready'}.webp" alt="Активный вис: ${v2.stage==='hold'?'фиксация':v2.stage==='rest'?'отдых':'подготовка'}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button><div class="v23-tech-caption"><span id="v23-tech-label">${ex.id==='hang'?(v2.stage==='hold'?'Лопатки вниз · локти прямые':v2.stage==='rest'?'Отдых между подходами':'Свободный вис · плечи расслаблены'):esc(data.cue)}</span><button data-v2-action="study-current" aria-label="Подробная техника">ⓘ</button></div></div>
+ <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><div class="v2-controls">${controls}</div><p class="v2-hint">${summary}</p></section>
  <div class="set-row">${Array.from({length:count},(_,i)=>`<button data-v2-slot="${i}" class="set-pill ${a[i]>0?'recorded':''} ${i===state.slotIndex?'active':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled':''} title="${slotLabel(ex,i)}">${a[i]>0?'✓ ':''}${i+1}${a[i]>0?' · '+a[i]:''}</button>`).join('')}</div>
  <div class="current-set">${slotLabel(ex,state.slotIndex)} ${a[state.slotIndex]>0?'· записан':''}</div>
- <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><p class="v2-hint">${summary}</p><div class="v2-controls">${controls}</div></section>
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
  </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>

@@ -42,3 +42,34 @@
 .v23-settings>summary{cursor:pointer;color:#9fb8bf;font-size:13px}
 .v23-settings .screen-mode-card{margin-top:12px}
 .v23-learn-photo{width:100%;display:block;border-radius:12px;margin-bottom:10px}
+
+/* 2.3 RC2: workout-first mobile layout, approved photographic composition */
+body:has(.v2-workout) .topbar{height:46px;position:relative;padding-inline:14px}
+body:has(.v2-workout) .brand{font-size:11px;gap:6px;letter-spacing:.06em}
+body:has(.v2-workout) .brand-mark{width:26px;height:26px;font-size:20px;line-height:23px}
+body:has(.v2-workout) .sync-pill{font-size:10px;padding:5px 7px}
+body:has(.v2-workout) .main{padding:8px 12px 24px}
+body:has(.v2-workout) .workout-top{margin:0 0 6px}
+body:has(.v2-workout) .workout-compact-title{font-size:12px;color:#9fb8c4;margin:0 0 5px}
+body:has(.v2-workout) .workout-progress{margin:0 0 6px;font-size:10px}
+body:has(.v2-workout) .exercise-strip{margin:5px 0 8px;gap:7px}
+body:has(.v2-workout) .exercise-node{width:27px;height:27px;flex-basis:27px;font-size:11px}
+body:has(.v2-workout) .v2-workout{padding:12px!important;border-radius:18px}
+body:has(.v2-workout) .exercise-count{font-size:10px}
+body:has(.v2-workout) .v2-workout h2{font-size:23px;margin:3px 0}
+body:has(.v2-workout) .exercise-prescription{margin:3px 0 6px;font-size:12px}
+body:has(.v2-workout) .v23-tech{margin:7px 0 9px;border-radius:13px}
+body:has(.v2-workout) .v23-tech-photo img{aspect-ratio:16/9;object-fit:contain;background:#1c2c2d}
+body:has(.v2-workout) .v23-tech-caption{padding:6px 9px;font-size:11px}
+body:has(.v2-workout) .v2-machine{background:transparent;border:0;padding:0!important;margin:3px 0!important;display:grid;grid-template-columns:1fr auto;gap:3px 8px;align-items:center;text-align:left}
+body:has(.v2-workout) .v2-machine>.eyebrow{font-size:10px}
+body:has(.v2-workout) .v2-digits{grid-column:2;grid-row:1;margin:0!important}
+body:has(.v2-workout) .v2-digits strong{font-size:35px!important;line-height:1}
+body:has(.v2-workout) .v2-digits small{font-size:12px}
+body:has(.v2-workout) .v2-controls{grid-column:1/-1;grid-row:2;flex-wrap:nowrap;margin:6px 0 0}
+body:has(.v2-workout) .v2-controls .btn{min-height:42px;padding:9px;font-size:12px}
+body:has(.v2-workout) .v2-hint{grid-column:1/-1;grid-row:3;font-size:11px;line-height:1.35;margin:2px 0!important}
+body:has(.v2-workout) .set-row{margin-top:12px}
+body:has(.v2-workout) .current-set{margin:3px 0 6px;font-size:11px}
+body:has(.v2-workout) .bottom-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+@media(max-width:390px){body:has(.v2-workout) .v2-workout h2{font-size:21px}body:has(.v2-workout) .v2-digits strong{font-size:32px!important}}
