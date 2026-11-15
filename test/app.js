@@ -1,7 +1,7 @@
 /* Статика: персональный тренажёр без сторонних JS-зависимостей.
  * Сессии работают без сети. Supabase Auth + PostgREST включаются после настройки.
  */
-const VERSION = '2.3.0-rc3';
+const VERSION = '2.3.0-rc4';
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = (n, min, max) => Math.min(max, Math.max(min, Number.isFinite(Number(n)) ? Number(n) : min));
@@ -534,9 +534,7 @@ function russianVoice(){
  const voices=window.speechSynthesis.getVoices()||[];
  return voices.find(x=>/^ru([-_]|$)/i.test(x.lang||'')) || null;
 }
-function voiceAvailability(){
- return russianVoice()?'Русский голос доступен, но во время аудиотаймера отключён во избежание пауз на iPhone. Звуковые сигналы сохраняются.':'Русский голос устройства не найден. Используй звуковые сигналы.';
-}
+function voiceAvailability(){return russianVoice()?'Русский голос устройства обнаружен. Озвучка экспериментальная; сигналы остаются основным сопровождением.':'Русский голос пока не обнаружен. Можно проверить его наличие кнопкой ниже.';}
 function speak(text){
  if(!v2.voice||bg2.mode==='locked'||bg2.player)return false; // iOS: TTS can interrupt the timing audio track
  const voice=russianVoice();if(!voice)return false;
@@ -578,8 +576,15 @@ function machineTick(){
   if(v2.remaining<=0){beginWork();return;}
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
- const n=$('#v2-clock');if(n)n.textContent=String(Math.max(0,Math.ceil(v2.remaining)));
+ const n=$('#v2-clock');if(n)n.textContent=String(Math.max(0,Math.ceil(v2.remaining)));updateV24Progress();
  const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
+}
+function updateV24Progress(){
+ const el=document.getElementById('v24-progress');if(!el)return;
+ const duration=Math.max(.01,Number(v2.duration)||0);
+ const pct=['countdown','hold','rest','paused'].includes(v2.stage)?Math.max(0,Math.min(100,(1-(Number(v2.remaining)||0)/duration)*100)):0;
+ el.style.width=pct.toFixed(2)+'%';
+ const track=el.parentElement;if(track){track.setAttribute('aria-valuenow',String(Math.round(pct)));track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');}
 }
 function startApproaches(){
  if(!['idle','between'].includes(v2.stage))return;
@@ -638,7 +643,7 @@ function workout(){
  <div class="exercise-strip">${p.items.map((item,i)=>{const arr=s?.sets?.[item.id]||[];const full=Array.from({length:countSlots(item)},(_,j)=>arr[j]).every(x=>x>0);return `<button data-v2-ex="${i}" class="exercise-node ${i===state.exerciseIndex?'current':''} ${full?'completed':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled title="Сначала остановите таймер"':''}>${full?'✓':i+1}</button>`;}).join('')}</div>
  <article class="workout-card v2-workout"><div class="exercise-count">УПРАЖНЕНИЕ ${state.exerciseIndex+1} ИЗ ${p.items.length}</div><h2>${esc(data.name)}</h2><p class="exercise-prescription">${amountLabel(ex)}</p>
  <div class="v23-tech"><button class="v23-tech-photo" data-v2-action="study-current" aria-label="Открыть подробную технику">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready'}.webp" alt="Активный вис: ${v2.stage==='hold'?'фиксация':v2.stage==='rest'?'отдых':'подготовка'}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button><div class="v23-tech-caption"><span id="v23-tech-label">${ex.id==='hang'?(v2.stage==='hold'?'Лопатки вниз · локти прямые':v2.stage==='rest'?'Отдых между подходами':'Свободный вис · плечи расслаблены'):esc(data.cue)}</span><button data-v2-action="study-current" aria-label="Подробная техника">ⓘ</button></div></div>
- <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><div class="v2-controls">${controls}</div><p class="v2-hint">${summary}</p></section>
+ <section class="v2-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${digits}</strong><small>${v2.stage==='reps'||(ex.kind==='reps'&&canStart)?'раз':'сек'}</small></div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div><div class="v2-controls">${controls}</div><p class="v2-hint">${summary}</p></section>
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
  </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
@@ -692,7 +697,7 @@ function history(){
 const oldShell=shell;
 shell=function(content){
  const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['learn','Обучение','◈'],['history','Дневник','▥'],['account','Аккаунт','◉']];
- return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC3</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
+ return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC4</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());};
 navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
@@ -718,7 +723,7 @@ document.addEventListener('click',ev=>{
  case 'resume':audioInit();resumeMachine();break;
  case 'early':earlyEnd();break;
  case 'abort':clearMachine();render();break;
- case 'test-voice':{const prev=v2.voice;v2.voice=true;const ok=speak('Приготовься');v2.voice=prev;if(ok)toast('Проигрывается голос устройства «Приготовься».');else toast('Русский голос устройства недоступен. Роботизированная речь удалена; используй сигналы.');break;}
+ case 'test-voice':{const prev=v2.voice;v2.voice=true;const ok=speak('Приготовься');v2.voice=prev;if(ok)toast('Проигрывается голос устройства «Приготовься».');else toast('Голос недоступен в текущем режиме. Звуковые сигналы работают.');break;}
  case 'reps':{if(v2.stage!=='reps')break;const amount=num($('#v2-reps-input')?.value,0,100);if(amount>=1)endApproach(amount);else toast('Укажи фактическое число повторений.');break;}
  case 'next':afterExercise();break;
  case 'continue-current':{
@@ -742,7 +747,7 @@ document.addEventListener('change',ev=>{const el=ev.target;if(!el.dataset.v2Sett
    toast('Звук и голос можно менять между упражнениями.');render();return;
  }
  if(el.dataset.v2Setting==='sound')v2.sound=el.checked;
- if(el.dataset.v2Setting==='voice'){if(el.checked&&!russianVoice()){v2.voice=false;toast('Русского голоса на устройстве нет. Доступны звуковые сигналы.');render();return;}v2.voice=el.checked;}
+ if(el.dataset.v2Setting==='voice'){if(el.checked&&!russianVoice()){v2.voice=false;toast('Русский голос пока недоступен на устройстве.');render();return;}v2.voice=el.checked;}
  if(el.dataset.v2Setting==='rest'){if(['countdown','hold','rest'].includes(v2.stage)){toast('Время отдыха можно менять между подходами.');el.value=String(v2.rest);return;}v2.rest=num(el.value,30,120);}
  updateMachineSettings();
 },true);

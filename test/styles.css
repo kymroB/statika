@@ -96,3 +96,43 @@ body:has(.v2-workout) .v2-machine:before{content:'';grid-column:1/-1;grid-row:2;
 body:has(.v2-workout) .set-row{margin-top:12px}
 body:has(.v2-workout) .v23-tech-caption{font-size:12px}
 @media(max-height:740px){body:has(.v2-workout) .v23-tech-photo img{height:min(33dvh,240px)}}
+
+/* RC4 — approved editorial reference: charcoal, typography, photography, minimal chrome */
+:root{--bg:#171819;--panel:#202123;--panel2:#252628;--border:#343638;--text:#f5f5f3;--muted:#b3b4b5;--accent:#83cfc0;--accent-dark:#243f3a;--radius:15px;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif}
+html,body{background:#171819;color:var(--text)}
+.topbar,body:has(.v2-workout) .topbar{background:#171819;border-bottom:1px solid #303234;height:49px}
+.brand-mark{background:#83cfc0!important;color:#152623!important;border-radius:11px!important}
+.sync-pill{background:#252b2a!important;border:0!important;color:#a9d8cd!important}
+.bottom-nav{background:#191a1b!important;border-top:1px solid #363738!important}
+.nav-link.active,.nav-link.active .nav-glyph{color:#83cfc0!important}
+body:has(.v2-workout) .main{padding:8px 14px 28px!important}
+body:has(.v2-workout) .workout-top{margin-bottom:4px!important}
+body:has(.v2-workout) .workout-step{letter-spacing:.09em;color:#a4a5a6;font-size:10px}
+body:has(.v2-workout) .workout-compact-title{color:#b4b5b5;font-size:11px;margin:0 0 3px!important}
+body:has(.v2-workout) .workout-progress{margin-bottom:5px!important}
+body:has(.v2-workout) .exercise-strip{margin:3px 0 8px!important}
+body:has(.v2-workout) .exercise-node{background:transparent;border-color:#4b5151;color:#b8baba}
+body:has(.v2-workout) .exercise-node.current{background:#83cfc0;color:#172523;border-color:#83cfc0}
+body:has(.v2-workout) .v2-workout{background:transparent!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important}
+body:has(.v2-workout) .exercise-count{color:#83cfc0;font-size:10px;letter-spacing:.15em}
+body:has(.v2-workout) .v2-workout h2{font-size:clamp(24px,6.7vw,32px)!important;line-height:1.08;letter-spacing:-.035em;font-weight:750;margin:4px 0 3px!important}
+body:has(.v2-workout) .exercise-prescription{color:#b9baba;font-size:12px;margin:0 0 6px!important}
+body:has(.v2-workout) .v23-tech{border-radius:13px!important;background:#202123!important;margin:7px 0 8px!important}
+body:has(.v2-workout) .v23-tech-photo{background:#202123!important}
+body:has(.v2-workout) .v23-tech-photo img{width:100%;height:clamp(145px,26dvh,240px)!important;object-fit:contain!important;background:#202123!important}
+body:has(.v2-workout) .v23-tech-caption{background:#202123!important;color:#d0d1cf!important;padding:6px 9px!important;font-size:11px}
+body:has(.v2-workout) .v23-tech-caption button{color:#83cfc0!important}
+body:has(.v2-workout) .v2-machine{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;margin:2px 0 0!important;grid-template-columns:1fr auto!important;gap:4px 8px!important}
+body:has(.v2-workout) .v2-machine>.eyebrow{color:#c9d4d1!important;font-size:11px!important;letter-spacing:.1em}
+body:has(.v2-workout) .v2-digits strong{font-size:clamp(32px,9vw,44px)!important;color:#83cfc0!important;font-weight:650}
+body:has(.v2-workout) .v2-machine:before{display:none!important}
+body:has(.v2-workout) .v24-timeline{grid-column:1/-1;grid-row:2;height:3px;background:#414747;border-radius:99px;overflow:hidden}
+body:has(.v2-workout) .v24-timeline>span{display:block;width:0;height:100%;background:#83cfc0;transition:width .12s linear}
+body:has(.v2-workout) .v2-controls{grid-column:1/-1;grid-row:3;margin:6px 0 0!important;gap:9px}
+body:has(.v2-workout) .v2-controls .btn{border-radius:11px!important;background:#282a2b!important;border:1px solid #36393a!important;color:#f1f2ef!important;font-weight:600;min-height:42px;padding:9px 12px!important;box-shadow:none!important}
+body:has(.v2-workout) .v2-controls .btn-primary{background:#83cfc0!important;color:#172725!important;border-color:#83cfc0!important}
+body:has(.v2-workout) .v2-hint{grid-column:1/-1;grid-row:4;color:#9c9e9d!important;font-size:11px!important;margin:2px 0!important}
+body:has(.v2-workout) .v23-settings{border:0!important;border-top:1px solid #36393a!important;border-radius:0!important;padding:10px 0!important;margin:12px 0!important}
+body:has(.v2-workout) .v2-edit{background:transparent!important;border:0!important;border-top:1px solid #36393a!important;border-radius:0!important;padding:12px 0!important}
+body:has(.v2-workout) .set-row{margin-top:12px!important}
+@media(max-height:760px){body:has(.v2-workout) .v23-tech-photo img{height:clamp(130px,23dvh,190px)!important}body:has(.v2-workout) .exercise-strip{margin-bottom:5px!important}}

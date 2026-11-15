@@ -117,6 +117,7 @@ function reconcileRecordedTrack(checkStall=false){
   }
  }
  if(bg2.currentPhase&&v2.stage!=='paused')v2.remaining=Math.max(0,bg2.currentPhase.end-effectiveTime);
+ if(typeof updateV24Progress==='function')updateV24Progress();
  if(v2.stage==='between'){
   releaseScreenLock();stopMediaTick();
  }else if(checkStall && !document.hidden && !player.ended){
