@@ -539,6 +539,19 @@ function russianVoice(){
  return voices.find(x=>/^ru([-_]|$)/i.test(x.lang||'')) || null;
 }
 function voiceAvailability(){return russianVoice()?'Русский голос устройства обнаружен. Озвучка экспериментальная; сигналы остаются основным сопровождением.':'Русский голос пока не обнаружен. Можно проверить его наличие кнопкой ниже.';}
+// iOS can transiently report hidden while its speech engine takes audio focus.
+// Only a sustained background transition may pause an awake-mode workout.
+let backgroundPauseCheck=null;
+function cancelBackgroundPauseCheck(){
+ if(backgroundPauseCheck!==null){clearTimeout(backgroundPauseCheck);backgroundPauseCheck=null;}
+}
+function scheduleBackgroundPauseCheck(){
+ cancelBackgroundPauseCheck();
+ backgroundPauseCheck=setTimeout(()=>{
+  backgroundPauseCheck=null;
+  if(document.hidden&&bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+ },1800);
+}
 function speak(text){
  if(!v2.voice||bg2.mode==='locked')return false; // Screen-off voice is not guaranteed; awake mode uses native TTS
  const voice=russianVoice();if(!voice)return false;
@@ -795,9 +808,10 @@ document.addEventListener('change',ev=>{const el=ev.target;if(!el.dataset.v2Sett
 },true);
 document.addEventListener('visibilitychange',()=>{
  if(document.hidden){
-  if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+  if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))scheduleBackgroundPauseCheck();
   else if(bg2.mode==='locked'&&['countdown','hold','rest'].includes(v2.stage))bg2.lockedHiddenAt=Date.now();
  } else {
+  cancelBackgroundPauseCheck();
   if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))requestScreenLock();
   if(bg2.player){reconcileRecordedTrack(true);if(bg2.lockedHiddenAt&&Date.now()-bg2.lockedHiddenAt>10000)toast('Проверь, все ли сигналы прозвучали при выключенном экране.');bg2.lockedHiddenAt=0;}
  }
@@ -807,7 +821,7 @@ window.addEventListener('pageshow',()=>{if(bg2.player)reconcileRecordedTrack(tru
 window.addEventListener('pagehide',()=>{
  // При блокировке экрана pagehide может сработать на некоторых устройствах.
  // В экспериментальном режиме аудиодорожку не останавливаем принудительно.
- if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+ if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))scheduleBackgroundPauseCheck();
 });
 
 boot().catch(err=>{console.error(err);render();toast('Ошибка запуска: '+err.message);});
