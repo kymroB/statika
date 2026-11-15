@@ -401,7 +401,7 @@ document.addEventListener('click', async ev=>{
  if(target.dataset.exercise!==undefined){state.exerciseIndex=Number(target.dataset.exercise);state.slotIndex=0;stopTimer();render();return;}
  if(target.dataset.set){const[i,j]=target.dataset.set.split(':').map(Number);editSet(i,j);return;}
  if(target.dataset.authMode){state.authMode=target.dataset.authMode;render();return;}
- if(target.dataset.openSession){const s=state.sessions.find(x=>x.id===target.dataset.openSession);if(s){state.activeId=s.id;state.exerciseIndex=0;state.slotIndex=0;navigate('workout');}return;}
+ if(target.dataset.openSession){navigate('history');return;}
  const act=target.dataset.action;if(!act)return;
  try{
    switch(act){
@@ -485,9 +485,9 @@ function statusOf(week,day){
  const ss=findFor(week,day),full=ss.find(s=>s.completed&&progress(s).done===progress(s).total),
  partial=ss.find(s=>s.completed&&progress(s).done>0&&progress(s).done<progress(s).total),
  draft=ss.find(s=>!s.completed&&progress(s).done>0);
- if(draft)return {label:'Продолжить',kind:'active',session:draft};
  if(full)return {label:'Выполнено полностью',kind:'full',session:full};
- if(partial)return {label:'Выполнено частично',kind:'partial',session:partial};
+ if(partial)return {label:'Выполнено частично',kind:'full',session:partial};
+ if(draft)return {label:'Продолжить',kind:'active',session:draft};
  return {label:'Начать',kind:'new',session:null};
 }
 completedWeeks=function(){let n=0;for(let w=1;w<=12;w++){if([1,2,3].every(d=>statusOf(w,d).kind==='full'))n++;else break;}return n;};
@@ -504,6 +504,8 @@ function pauseMachine(){
  releaseScreenLock();if(state.screen==='workout')render();
 }
 function openWorkout(week,day,{repeat=false,sessionId=null,origin=null}={}){
+ if(findFor(week,day).some(s=>s.completed)){toast('Этот день курса уже завершён. Повторное прохождение недоступно.');return;}
+ repeat=false;sessionId=null;
  if(v2.stage==='paused' && v2.selected.week===week && v2.selected.day===day && !repeat && !sessionId){v2.origin=origin || (state.screen==='plan'?'plan':v2.origin);navigate('workout');return;}
  if(state.screen==='workout')pauseMachine();
  stopTimer();clearMachine();v2.selected={week,day};v2.origin=origin|| (state.screen==='plan'?'plan':'home');v2.historyReview=!!sessionId;v2.repeat=repeat;
@@ -518,7 +520,7 @@ function openWorkout(week,day,{repeat=false,sessionId=null,origin=null}={}){
 }
 initSession=function(week,day){openWorkout(week,day);};
 function ensureSession(){
- let s=currentSession();if(s){if(s.completed){s.completed=false;touchSession(s);}return s;}
+ let s=currentSession();if(s){if(s.completed){toast('Занятие завершено.');return null;}return s;}
  const {week,day}=v2.selected;
  s={id:uid(),user_id:state.user?.id||null,week,day,performed_at:now(),updated_at:now(),completed:false,mood:'',notes:'',sets:{}};
  state.sessions.unshift(s);state.activeId=s.id;touchSession(s);return s;
@@ -671,7 +673,7 @@ function workout(){
  <div class="rc5-advanced" id="rc5-advanced">
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
- </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
+ </details>
  <div class="set-row">${Array.from({length:count},(_,i)=>`<button data-v2-slot="${i}" class="set-pill ${a[i]>0?'recorded':''} ${i===state.slotIndex?'active':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled':''} title="${slotLabel(ex,i)}">${a[i]>0?'✓ ':''}${i+1}${a[i]>0?' · '+a[i]:''}</button>`).join('')}</div>
  <div class="current-set">${slotLabel(ex,state.slotIndex)} ${a[state.slotIndex]>0?'· записан':''}</div>
  </div></article>
@@ -746,7 +748,7 @@ function rc5Tech(tab='ready'){
 }
 function rc5Menu(){
  const advanced=document.getElementById('rc5-advanced');
- rc5Modal('Действия',`<div class="rc5-menu-actions"><button data-rc5="settings">⚙ Настройки тренировки <span>›</span></button><button data-rc5="edit">✎ Исправить результат <span>›</span></button><button data-rc5="finish">⚑ Завершить тренировку <span>›</span></button></div>`);
+ rc5Modal('Действия',`<div class="rc5-menu-actions"><button data-rc5="settings">⚙ Настройки тренировки <span>›</span></button><button data-rc5="finish">⚑ Завершить тренировку <span>›</span></button></div>`);
 }
 document.addEventListener('click',ev=>{
  const b=ev.target.closest('[data-rc5],[data-rc5-close],[data-rc5-tab],[data-rc7-back]');if(!b)return;
@@ -791,7 +793,7 @@ document.addEventListener('click',ev=>{
  }
  case 'study-current':switchToStudy(selectedPlan().items[state.exerciseIndex].id,'workout');break;
  case 'back-to-training':navigate(v2.screenBeforeStudy==='workout'?'workout':'plan');break;
- case 'edit-set':{if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала поставьте тренировку на паузу.');break;}const value=document.querySelector('#rc5-modal #v2-actual')?.value||$('#v2-actual')?.value;if(!value||Number(value)<1){toast('Введите положительное число.');break;}persistSet(value);render();toast('Исправление сохранено.');break;}
+ case 'edit-set':{toast('Ручное редактирование результатов отключено.');break;if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала поставьте тренировку на паузу.');break;}const value=document.querySelector('#rc5-modal #v2-actual')?.value||$('#v2-actual')?.value;if(!value||Number(value)<1){toast('Введите положительное число.');break;}persistSet(value);render();toast('Исправление сохранено.');break;}
  case 'finish':finishWorkout();break;
  }
 },true);
@@ -838,12 +840,20 @@ function diaryLabel(s){return diaryFull(s)?'Завершено':s.completed?'З�
 function diaryCard(s){const p=plan(s.week,s.day),completedExercises=diaryCompletedCount(s),sp=diarySetProgress(s),pct=sp.pct,full=diaryFull(s);
  return `<button type="button" class="diary-card ${!full?'diary-incomplete':''}" data-diary-open="${s.id}"><span class="diary-status-icon ${full?'complete':''}">${full?'✓':'◔'}</span><span class="diary-card-body"><span class="diary-card-title">День ${s.day} · ${esc(p.title)}</span><span class="diary-card-detail">Выполнено ${sp.done} из ${sp.total} подходов</span><span class="diary-meter"><span style="width:${pct}%"></span></span></span><span class="diary-card-side"><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span><span class="diary-pct">${pct}%</span></span><span class="diary-arrow">›</span></button>`;
 }
-function diaryOverview(){const all=state.sessions.filter(diaryHasRecordedSets).sort((a,b)=>(a.week-b.week)||(a.day-b.day)||(new Date(a.performed_at)-new Date(b.performed_at)));const full=all.filter(s=>s.completed||diaryFull(s)).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
+function canonicalSessions(){
+ const groups=new Map();
+ for(const s of state.sessions){const k=s.week+':'+s.day;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(s);}
+ return [...groups.values()].map(group=>{
+  group.sort((a,b)=>new Date(a.performed_at)-new Date(b.performed_at));
+  return group.find(s=>s.completed)||group.find(diaryHasRecordedSets)||group[0];
+ });
+}
+function diaryOverview(){const all=canonicalSessions().filter(diaryHasRecordedSets).sort((a,b)=>(a.week-b.week)||(a.day-b.day));const full=all.filter(s=>s.completed||diaryFull(s)).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
  const groups=new Map();for(const s of all){if(!groups.has(s.week))groups.set(s.week,[]);groups.get(s.week).push(s);}
  return `<section class="diary-screen"><div class="diary-heading"><h1>Дневник</h1><button class="diary-export" data-action="export" type="button" title="Скачать резервную копию">Экспорт ↧</button></div><div class="diary-stats"><div><span>Завершено</span><strong>${full}</strong></div><div><span>В процессе</span><strong>${partial}</strong></div><div><span>Всего подходов</span><strong>${sets}</strong></div></div>${all.length?[...groups.entries()].map(([week,entries])=>`<section class="diary-week"><h2>НЕДЕЛЯ ${week}</h2>${entries.map(diaryCard).join('')}</section>`).join(''):`<div class="empty"><h3>Пока нет записей</h3><p>Результаты появятся после первого сохранённого подхода.</p><button class="btn btn-primary" data-start="1:1">Начать тренировку</button></div>`}</section>`;
 }
-function diaryDetail(s){const p=plan(s.week,s.day),completedExercises=diaryCompletedCount(s),sp=diarySetProgress(s),pct=sp.pct,full=diaryFull(s),editing=diaryEditingId===s.id;
- return `<section class="diary-screen diary-detail"><button class="diary-back" data-diary-back>← Дневник</button><div class="diary-eyebrow">НЕДЕЛЯ ${s.week} · ДЕНЬ ${s.day}</div><div class="diary-detail-heading"><h1>${esc(p.title)}</h1><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span></div><div class="diary-meta">${fmtDate(s.performed_at)} · ${progress(s).done} из ${progress(s).total} подходов</div><div class="diary-progress"><div><span>Выполнено <b>${sp.done} из ${sp.total}</b> подходов</span><strong>${pct}%</strong></div><span class="diary-meter"><span style="width:${pct}%"></span></span></div><div class="diary-exercises">${p.items.map(ex=>{const arr=s.sets?.[ex.id]||[],n=countSlots(ex),complete=Array.from({length:n},(_,i)=>arr[i]).every(x=>Number(x)>0),recorded=Array.from({length:n},(_,i)=>arr[i]).filter(x=>Number(x)>0);return `<article class="diary-exercise"><div class="diary-ex-row"><span class="diary-ex-check ${complete?'complete':''}">${complete?'✓':''}</span><div><strong>${esc(LIB[ex.id].name)}</strong><span>${recorded.length?`${recorded.length} из ${n} подходов · ${recorded.join(', ')} ${ex.kind==='hold'?'сек':'повт'}`:'Не выполнено · '+amountLabel(ex)}</span></div></div>${editing?`<div class="diary-edit-sets">${Array.from({length:n},(_,i)=>`<label>${esc(slotLabel(ex,i))}<input type="number" inputmode="numeric" min="0" max="${ex.kind==='hold'?300:100}" value="${arr[i]>0?arr[i]:''}" placeholder="—" data-diary-set="${esc(ex.id)}" data-diary-index="${i}" aria-label="${esc(LIB[ex.id].name)} ${esc(slotLabel(ex,i))}"></label>`).join('')}</div>`:''}</article>`;}).join('')}</div>${editing?`<button class="diary-primary" data-diary-save="${s.id}">Сохранить изменения</button><button class="diary-secondary" data-diary-cancel>Отмена</button>`:`${!full?`<button class="diary-primary" data-diary-resume="${s.id}">▶ Продолжить тренировку</button>`:''}<button class="diary-secondary" data-diary-edit="${s.id}">✎ Редактировать результаты</button>`}</section>`;
+function diaryDetail(s){const p=plan(s.week,s.day),completedExercises=diaryCompletedCount(s),sp=diarySetProgress(s),pct=sp.pct,full=diaryFull(s),editing=false;
+ return `<section class="diary-screen diary-detail"><button class="diary-back" data-diary-back>← Дневник</button><div class="diary-eyebrow">НЕДЕЛЯ ${s.week} · ДЕНЬ ${s.day}</div><div class="diary-detail-heading"><h1>${esc(p.title)}</h1><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span></div><div class="diary-meta">${fmtDate(s.performed_at)} · ${progress(s).done} из ${progress(s).total} подходов</div><div class="diary-progress"><div><span>Выполнено <b>${sp.done} из ${sp.total}</b> подходов</span><strong>${pct}%</strong></div><span class="diary-meter"><span style="width:${pct}%"></span></span></div><div class="diary-exercises">${p.items.map(ex=>{const arr=s.sets?.[ex.id]||[],n=countSlots(ex),complete=Array.from({length:n},(_,i)=>arr[i]).every(x=>Number(x)>0),recorded=Array.from({length:n},(_,i)=>arr[i]).filter(x=>Number(x)>0);return `<article class="diary-exercise"><div class="diary-ex-row"><span class="diary-ex-check ${complete?'complete':''}">${complete?'✓':''}</span><div><strong>${esc(LIB[ex.id].name)}</strong><span>${recorded.length?`${recorded.length} из ${n} подходов · ${recorded.join(', ')} ${ex.kind==='hold'?'сек':'повт'}`:'Не выполнено · '+amountLabel(ex)}</span></div></div>${editing?`<div class="diary-edit-sets">${Array.from({length:n},(_,i)=>`<label>${esc(slotLabel(ex,i))}<input type="number" inputmode="numeric" min="0" max="${ex.kind==='hold'?300:100}" value="${arr[i]>0?arr[i]:''}" placeholder="—" data-diary-set="${esc(ex.id)}" data-diary-index="${i}" aria-label="${esc(LIB[ex.id].name)} ${esc(slotLabel(ex,i))}"></label>`).join('')}</div>`:''}</article>`;}).join('')}</div>${editing?`<button class="diary-primary" data-diary-save="${s.id}">Сохранить изменения</button><button class="diary-secondary" data-diary-cancel>Отмена</button>`:`${!s.completed?`<button class="diary-primary" data-diary-resume="${s.id}">▶ Продолжить тренировку</button>`:''}`}</section>`;
 }
 function history(){const s=state.sessions.find(x=>x.id===diaryOpenedId);if(diaryOpenedId&&!s){diaryOpenedId=null;diaryEditingId=null;}return s?diaryDetail(s):diaryOverview();}
 
@@ -863,11 +873,9 @@ document.addEventListener('click',ev=>{
  if(b.dataset.diaryOpen){diaryOpenedId=b.dataset.diaryOpen;diaryEditingId=null;render();window.scrollTo(0,0);return;}
  if(b.hasAttribute('data-diary-back')){diaryOpenedId=null;diaryEditingId=null;render();window.scrollTo(0,0);return;}
  if(b.hasAttribute('data-diary-cancel')){diaryEditingId=null;render();return;}
- if(b.dataset.diaryEdit){diaryEditingId=b.dataset.diaryEdit;render();return;}
- if(b.dataset.diaryResume){const s=state.sessions.find(x=>x.id===b.dataset.diaryResume);if(s){diaryOpenedId=null;diaryEditingId=null;openWorkout(s.week,s.day,{origin:'plan',sessionId:s.id});}return;}
- if(b.dataset.diarySave){const s=state.sessions.find(x=>x.id===b.dataset.diarySave);if(!s)return;
- const inputs=[...document.querySelectorAll('[data-diary-set]')];const updates={};for(const input of inputs){const raw=input.value.trim(),val=raw===''?0:Number(raw);if(!Number.isInteger(val)||val<0||val>Number(input.max)){toast('Проверь значения подходов: нужны целые числа в допустимом диапазоне.');input.focus();return;}const id=input.dataset.diarySet;updates[id] ||= [...(s.sets[id]||[])];updates[id][Number(input.dataset.diaryIndex)]=val;}
- for(const [id,arr] of Object.entries(updates))s.sets[id]=arr;s.completed=diaryFull(s);touchSession(s);diaryEditingId=null;if(!diaryHasRecordedSets(s))diaryOpenedId=null;render();toast('Результаты сохранены.');return;}
+ if(b.dataset.diaryEdit){return;}
+ if(b.dataset.diaryResume){const s=state.sessions.find(x=>x.id===b.dataset.diaryResume);if(s&&!s.completed){diaryOpenedId=null;diaryEditingId=null;openWorkout(s.week,s.day,{origin:'plan'});}return;}
+
 },true);
 
 boot().catch(err=>{console.error(err);render();toast('Ошибка запуска: '+err.message);});
