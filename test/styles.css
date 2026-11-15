@@ -207,11 +207,7 @@ body:has(.rc7-history-review) .rc5-machine .v2-controls{display:block!important;
 body:has(.rc7-history-review) .rc5-machine .v24-timeline{display:none!important}
 body:has(.rc7-history-review) .rc5-machine .subtle-card{max-width:100%;overflow-wrap:anywhere;font-size:13px}
 
-/* RC7.3 approved diary and 4-column bottom navigation */
-.bottom-nav,body:has(.rc5-workout) .bottom-nav,body:has(.v2-workout) .bottom-nav{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;width:100%!important;max-width:900px!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;gap:0!important;padding:9px max(8px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important}
-.nav-link,.bottom-nav .nav-link{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-width:0!important;min-height:57px!important;padding:5px 0!important;gap:6px!important;font-size:12px!important;text-align:center!important}
-.nav-glyph,.bottom-nav .nav-glyph{display:grid!important;place-items:center!important;font-size:25px!important;line-height:1!important;width:27px!important;height:27px!important}
-.nav-glyph svg{display:block;width:26px;height:26px}
+/* RC7.3 diary and navigation */
 .diary-screen{max-width:690px;margin:0 auto;padding:4px 0 30px}
 .diary-heading,.diary-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .diary-heading h1,.diary-detail-heading h1{font-size:clamp(27px,6vw,36px);line-height:1.15;letter-spacing:-.035em;margin:0;font-weight:780}

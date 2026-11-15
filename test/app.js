@@ -313,30 +313,419 @@ function workout(){
  <section class="feelings"><h3>Заметки после занятия</h3><label for="mood">Как ощущалась нагрузка?</label><select id="mood" data-field="mood"><option value="" ${!s.mood?'selected':''}>Не выбрано</option><option value="easy" ${s.mood==='easy'?'selected':''}>Легко</option><option value="normal" ${s.mood==='normal'?'selected':''}>Нормально</option><option value="hard" ${s.mood==='hard'?'selected':''}>Тяжело</option></select><label for="notes">Самочувствие и техника</label><textarea id="notes" data-field="notes" maxlength="4000" rows="3" placeholder="Что получилось? Что было трудно?">${esc(s.notes)}</textarea></section>
  <button class="btn btn-finish btn-wide" data-action="finish">Завершить и сохранить (${pg.done}/${pg.total})</button><p class="fine-print center">Если потерял доступ к интернету, записи останутся на устройстве и будут отправлены в облако позднее.</p>`;
 }
-let diaryOpenedId=null;
-let diaryEditingId=null;
-function diaryCompletedCount(s){const p=plan(s.week,s.day);return p.items.filter(ex=>{const a=s.sets?.[ex.id]||[];return Array.from({length:countSlots(ex)},(_,i)=>a[i]).every(x=>Number(x)>0);}).length;}
-function diaryFull(s){return diaryCompletedCount(s)===plan(s.week,s.day).items.length;}
-function diaryLabel(s){return diaryFull(s)?'Завершено':s.completed?'Завершена частично':'В процессе';}
-function diaryCard(s){const p=plan(s.week,s.day),done=diaryCompletedCount(s),pct=Math.round(100*done/p.items.length),full=diaryFull(s);
- return `<button type="button" class="diary-card ${!full?'diary-incomplete':''}" data-diary-open="${s.id}"><span class="diary-status-icon ${full?'complete':''}">${full?'✓':'◔'}</span><span class="diary-card-body"><span class="diary-card-title">День ${s.day} · ${esc(p.title)}</span><span class="diary-card-detail">Выполнено ${done} из ${p.items.length} упражнений</span><span class="diary-meter"><span style="width:${pct}%"></span></span></span><span class="diary-card-side"><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span><span class="diary-pct">${pct}%</span></span><span class="diary-arrow">›</span></button>`;
+function history(){
+ const completed=state.sessions.filter(s=>s.completed).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at));
+ const totalSets=state.sessions.reduce((a,s)=>a+Object.values(s.sets).reduce((b,vals)=>b+(Array.isArray(vals)?vals.filter(v=>v>0).length:0),0),0);
+ const chart=Array.from({length:12},(_,i)=>({w:i+1,count:[1,2,3].filter(d=>state.sessions.some(s=>s.week===i+1&&s.day===d&&s.completed)).length}));
+ return `${heading('МОЙ ПРОГРЕСС','Дневник тренировок','Выполненные подходы, история занятий и заметки.')}
+ <div class="two-stats"><div class="stat"><div class="stat-value">${completed.length}</div><div class="stat-label">Завершено занятий</div></div><div class="stat"><div class="stat-value">${totalSets}</div><div class="stat-label">Подходов записано</div></div></div>
+ <section class="chart-card"><h2>Завершённые занятия по неделям</h2><div class="bars">${chart.map(c=>`<div class="bar-col"><div class="bar-track"><div class="bar-fill" style="height:${c.count/3*100}%"></div></div><small>${c.w}</small></div>`).join('')}</div><p class="fine-print">Высота столбца показывает число завершённых тренировок из трёх на каждой неделе.</p></section>
+ <div class="section-title"><h2>История</h2><button class="text-link" data-action="export">Экспорт JSON ↓</button></div>
+ ${state.sessions.length ? state.sessions.slice().sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at)).map(s=>{
+ const pg=progress(s);return `<article class="history-row"><div class="history-icon">${s.completed?'✓':'◴'}</div><div class="history-body"><strong>Неделя ${s.week} · ${esc(DAYS[s.day-1].title)}</strong><span>${fmtDate(s.performed_at)} · ${pg.done} из ${pg.total} подходов · ${s.completed?'Завершено':'Черновик'}</span>${s.mood?`<small>Нагрузка: ${{easy:'легко',normal:'нормально',hard:'тяжело'}[s.mood]}</small>`:''}${s.notes?`<p>${esc(s.notes)}</p>`:''}</div><button class="history-action" data-open-session="${s.id}" title="Открыть">↗</button></article>`;}).join('') : `<div class="empty"><div class="empty-symbol">◎</div><h3>Пока нет записей</h3><p>Открой первую тренировку и сохрани хотя бы один подход.</p><button class="btn btn-primary" data-start="1:1">Начать тренировку</button></div>`}
+ <div class="note-card"><strong>Резервная копия</strong><p>Экспортируй дневник в JSON после важных этапов. Это полезно даже при облачной синхронизации.</p></div>`;
 }
-function diaryOverview(){const all=state.sessions.filter(s=>progress(s).done>0).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at));const full=all.filter(diaryFull).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
- const groups=new Map();for(const s of all){if(!groups.has(s.week))groups.set(s.week,[]);groups.get(s.week).push(s);}
- return `<section class="diary-screen"><div class="diary-heading"><h1>Дневник</h1><button class="diary-export" data-action="export" type="button" title="Скачать резервную копию">Экспорт ↧</button></div><div class="diary-stats"><div><span>Завершено</span><strong>${full}</strong></div><div><span>В процессе</span><strong>${partial}</strong></div><div><span>Всего подходов</span><strong>${sets}</strong></div></div>${all.length?[...groups.entries()].map(([week,entries])=>`<section class="diary-week"><h2>НЕДЕЛЯ ${week}</h2>${entries.map(diaryCard).join('')}</section>`).join(''):`<div class="empty"><h3>Пока нет записей</h3><p>Результаты появятся после первого сохранённого подхода.</p><button class="btn btn-primary" data-start="1:1">Начать тренировку</button></div>`}</section>`;
+function account(){
+ const guest = safeRead('statika.sessions.guest.v1',[]);
+ const authPart = state.user ? `<div class="connected"><span class="connected-mark">✓</span><div><strong>${esc(state.user.email||'Профиль')}</strong><p>Вход выполнен. Дневник принадлежит этому аккаунту.</p></div></div>${state.recovery?`<form id="password-form" class="form-stack"><p class="muted small">Введите новый пароль для восстановления доступа.</p><label>Новый пароль<input name="newpassword" type="password" required minlength="8" autocomplete="new-password"/></label><button type="submit" class="btn btn-primary btn-wide">Обновить пароль</button></form>`:''}<div class="action-row"><button class="btn btn-outline" data-action="sync">↻ Синхронизировать</button><button class="btn btn-muted" data-action="logout">Выйти</button></div>${guest.length?`<div class="note-card"><strong>Есть локальные гостевые занятия (${guest.length})</strong><p>Можно перенести их в текущий аккаунт. Записи не удалятся с устройства.</p><button class="btn btn-light" data-action="import-guest">Перенести записи</button></div>`:''}` : (configured()?`<form id="auth-form" class="form-stack"><div class="mode-switch"><button type="button" class="${state.authMode==='login'?'selected':''}" data-auth-mode="login">Вход</button><button type="button" class="${state.authMode==='signup'?'selected':''}" data-auth-mode="signup">Регистрация</button></div><label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com"/></label><label>Пароль<input name="password" type="password" minlength="6" autocomplete="${state.authMode==='login'?'current-password':'new-password'}" required placeholder="Не меньше 6 символов"/></label><button type="submit" class="btn btn-primary btn-wide">${state.authMode==='login'?'Войти':'Создать аккаунт'}</button><button class="text-link center" type="button" data-action="reset-password">Забыли пароль?</button></form>`:`<div class="note-card"><strong>Облако ещё не подключено</strong><p>Локальные тренировки уже работают. Для входа с двух телефонов подключи Supabase ниже.</p></div>`);
+ return `${heading('НАСТРОЙКИ','Аккаунт и данные','Авторизация, облачная синхронизация и резервные копии.')}
+ <section class="settings-card"><div class="section-title"><h2>Мои данные</h2><span id="account-status" class="tag">${syncBadge().text}</span></div>${authPart}</section>
+ <section class="settings-card"><h2>Подключение Supabase</h2><p class="muted small">Для синхронизации используется отдельный бесплатный проект Supabase. Укажи URL и публичный ключ проекта. Секретный ключ вводить нельзя.</p>
+ <form id="config-form" class="form-stack"><label>Project URL<input type="url" name="url" value="${esc(state.settings.supabaseUrl)}" placeholder="https://xxxxx.supabase.co" autocomplete="off" required/></label><label>Publishable key<input type="text" name="key" value="${esc(state.settings.supabasePublishableKey)}" placeholder="sb_publishable_..." autocomplete="off" spellcheck="false" required/></label><button type="submit" class="btn btn-outline btn-wide">Сохранить параметры подключения</button></form>
+ <p class="fine-print">Если параметры уже прописаны в файле config.js, они будут использоваться при публикации на обоих телефонах.</p></section>
+ <section class="settings-card"><h2>Резервное копирование</h2><p class="muted small">Сохрани JSON-файл с результатами или импортируй собственную резервную копию.</p><div class="action-row"><button class="btn btn-light" data-action="export">↓ Экспорт</button><button class="btn btn-outline" data-action="import">↑ Импорт</button></div><input type="file" id="import-file" accept=".json,application/json" hidden/></section>
+ <div class="note-card"><strong>Конфиденциальность</strong><p>Каждый пользователь видит только свои тренировки благодаря Row Level Security в Supabase. Пароль хранится в системе авторизации Supabase, не в журнале тренировок. На устройстве хранится сеанс входа для повторного использования.</p></div>
+ <p class="version">Статика · версия ${VERSION} · PWA</p>`;
 }
-function diaryDetail(s){const p=plan(s.week,s.day),done=diaryCompletedCount(s),pct=Math.round(100*done/p.items.length),full=diaryFull(s),editing=diaryEditingId===s.id;
- return `<section class="diary-screen diary-detail"><button class="diary-back" data-diary-back>← Дневник</button><div class="diary-eyebrow">НЕДЕЛЯ ${s.week} · ДЕНЬ ${s.day}</div><div class="diary-detail-heading"><h1>${esc(p.title)}</h1><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span></div><div class="diary-meta">${fmtDate(s.performed_at)} · ${progress(s).done} из ${progress(s).total} подходов</div><div class="diary-progress"><div><span>Выполнено <b>${done} из ${p.items.length}</b> упражнений</span><strong>${pct}%</strong></div><span class="diary-meter"><span style="width:${pct}%"></span></span></div><div class="diary-exercises">${p.items.map(ex=>{const arr=s.sets?.[ex.id]||[],n=countSlots(ex),complete=Array.from({length:n},(_,i)=>arr[i]).every(x=>Number(x)>0),recorded=Array.from({length:n},(_,i)=>arr[i]).filter(x=>Number(x)>0);return `<article class="diary-exercise"><div class="diary-ex-row"><span class="diary-ex-check ${complete?'complete':''}">${complete?'✓':''}</span><div><strong>${esc(LIB[ex.id].name)}</strong><span>${recorded.length?`${recorded.length} из ${n} подходов · ${recorded.join(', ')} ${ex.kind==='hold'?'сек':'повт'}`:'Не выполнено · '+amountLabel(ex)}</span></div></div>${editing?`<div class="diary-edit-sets">${Array.from({length:n},(_,i)=>`<label>${esc(slotLabel(ex,i))}<input type="number" inputmode="numeric" min="0" max="${ex.kind==='hold'?300:100}" value="${arr[i]>0?arr[i]:''}" placeholder="—" data-diary-set="${esc(ex.id)}" data-diary-index="${i}" aria-label="${esc(LIB[ex.id].name)} ${esc(slotLabel(ex,i))}"></label>`).join('')}</div>`:''}</article>`;}).join('')}</div>${editing?`<button class="diary-primary" data-diary-save="${s.id}">Сохранить изменения</button><button class="diary-secondary" data-diary-cancel>Отмена</button>`:`${!full?`<button class="diary-primary" data-diary-resume="${s.id}">▶ Продолжить тренировку</button>`:''}<button class="diary-secondary" data-diary-edit="${s.id}">✎ Редактировать результаты</button>`}</section>`;
+function render(){
+ const body=({home,plan:planView,workout,history,account})[state.screen]();
+ $('#app').innerHTML=shell(body);
+ if(state.timer)timerDisplay();
 }
-function history(){const s=state.sessions.find(x=>x.id===diaryOpenedId);if(diaryOpenedId&&!s){diaryOpenedId=null;diaryEditingId=null;}return s?diaryDetail(s):diaryOverview();}
+function navigate(screen){
+ if(!['home','plan','workout','history','account'].includes(screen))return;
+ if(state.screen==='workout'&&screen!=='workout')stopTimer();
+ state.screen=screen;render();window.scrollTo({top:0,behavior:'instant'});
+}
+function downloadFile(name,data,type){const blob=new Blob([data],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function exportData(){downloadFile('statika-diary-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({format:'statika-diary-v1',exported_at:now(),sessions:state.sessions},null,2),'application/json');toast('Резервная копия подготовлена.');}
+function importData(text){
+ let data;try{data=JSON.parse(text);}catch{throw new Error('Файл не является JSON');}
+ if(data?.format!=='statika-diary-v1'||!Array.isArray(data.sessions))throw new Error('Неверный формат резервной копии');
+ if(data.sessions.length>2000)throw new Error('Слишком большой файл резервной копии');
+ let added=0;
+ const ids=new Set(state.sessions.map(s=>s.id));
+ for(const s of data.sessions){
+   if(!validSession(s))continue;
+   if(ids.has(s.id))continue;
+   const copy={id:s.id,user_id:state.user?.id||null,week:s.week,day:s.day,performed_at:s.performed_at||now(),updated_at:now(),completed:!!s.completed,mood:['','easy','normal','hard'].includes(s.mood)?s.mood:'',notes:String(s.notes||'').slice(0,4000),sets:{}};
+   const p=plan(s.week,s.day);
+   for(const ex of p.items){const old=Array.isArray(s.sets[ex.id])?s.sets[ex.id]:[];copy.sets[ex.id]=old.slice(0,countSlots(ex)).map(v=>v>0?Math.round(num(v,1,ex.kind==='hold'?300:100)):null);}
+   state.sessions.push(copy);state.pending.add(copy.id);ids.add(copy.id);added++;
+ }
+ queueSync();render();toast('Добавлено записей: '+added);
+}
+function importGuest(){
+ const guest=safeRead('statika.sessions.guest.v1',[]);if(!guest.length)return;
+ const ids=new Set(state.sessions.map(s=>s.id));let n=0;
+ for(const s of guest){if(!validSession(s))continue;const copy={...s,id:ids.has(s.id)?uid():s.id,user_id:state.user.id,updated_at:now()};state.sessions.push(copy);state.pending.add(copy.id);n++;}
+ queueSync();render();toast(`Импортировано ${n} гостевых записей.`);
+}
+function setConfig(url,key){
+ if(!/^https:\/\/[a-z0-9.-]+\/?$/i.test(url)||!/^sb_publishable_[a-zA-Z0-9_\-]+$/.test(key))throw new Error('Нужен HTTPS URL и ключ sb_publishable_… (не секретный ключ).');
+ if(state.user)throw new Error('Перед сменой проекта необходимо выйти из аккаунта');
+ state.settings={supabaseUrl:url.trim(),supabasePublishableKey:key.trim()};safeWrite('statika.config.v1',state.settings);
+ toast('Параметры сохранены. Теперь можно войти.');render();
+}
+async function handleHashLogin(){
+ if(!configured())return;
+ const raw=window.location.hash.replace(/^#/,'');
+ if(!raw.includes('access_token='))return;
+ const params=new URLSearchParams(raw);
+ const access_token=params.get('access_token'), refresh_token=params.get('refresh_token');
+ if(!access_token||!refresh_token)return;
+ try{
+ const user=await request('/auth/v1/user',{jwt:access_token});
+ setAuth({access_token,refresh_token,expires_at:Date.now()+Number(params.get('expires_in')||3600)*1000,user});
+ window.history.replaceState(null,'',location.pathname+location.search);
+ state.recovery=params.get('type')==='recovery';if(state.recovery)state.screen='account';await sync();toast(state.recovery?'Введите новый пароль на вкладке аккаунта.':'Email подтверждён. Вход выполнен.');
+ }catch(err){toast('Не удалось обработать ссылку подтверждения: '+err.message);}
+}
 
+// Делегированные обработчики не вставляют в HTML пользовательский JS.
+document.addEventListener('click', async ev=>{
+ const target=ev.target.closest('[data-nav],[data-week],[data-start],[data-exercise],[data-set],[data-auth-mode],[data-open-session],[data-action]');if(!target)return;
+ if(target.dataset.nav){navigate(target.dataset.nav);return;}
+ if(target.dataset.week){state.week=Number(target.dataset.week);render();return;}
+ if(target.dataset.start){const[w,d]=target.dataset.start.split(':').map(Number);initSession(w,d);return;}
+ if(target.dataset.exercise!==undefined){state.exerciseIndex=Number(target.dataset.exercise);state.slotIndex=0;stopTimer();render();return;}
+ if(target.dataset.set){const[i,j]=target.dataset.set.split(':').map(Number);editSet(i,j);return;}
+ if(target.dataset.authMode){state.authMode=target.dataset.authMode;render();return;}
+ if(target.dataset.openSession){const s=state.sessions.find(x=>x.id===target.dataset.openSession);if(s){state.activeId=s.id;state.exerciseIndex=0;state.slotIndex=0;navigate('workout');}return;}
+ const act=target.dataset.action;if(!act)return;
+ try{
+   switch(act){
+   case 'mark-set':markSet($('#actual').value);break;
+   case 'start-hold':startTimer('hold');break;
+   case 'start-rest':startTimer('rest');break;
+   case 'toggle-timer':pauseResumeTimer();break;
+   case 'stop-timer':stopTimer();render();break;
+   case 'finish':finishWorkout();break;
+   case 'sync':await sync();toast('Проверка синхронизации завершена.');break;
+   case 'logout':await logout();break;
+   case 'export':exportData();break;
+   case 'import':$('#import-file').click();break;
+   case 'import-guest':if(confirm('Скопировать гостевые записи в текущий аккаунт?'))importGuest();break;
+   case 'reset-password':{
+     const email=prompt('Введите email, на который отправить ссылку восстановления:');
+     if(email){if(!configured())throw new Error('Supabase не настроен');await request('/auth/v1/recover',{method:'POST',body:{email}});toast('Если адрес существует, на него отправлена ссылка.');}
+     break;
+   }
+   }
+ }catch(err){toast(err.message);}
+});
+document.addEventListener('submit',async ev=>{
+ const form=ev.target;if(!['auth-form','config-form','password-form'].includes(form.id))return;ev.preventDefault();
+ const btn=$('button[type="submit"]',form);if(btn)btn.disabled=true;
+ try{
+   const f=new FormData(form);
+   if(form.id==='auth-form'){
+     if(state.authMode==='signup')await signup(String(f.get('email')).trim(),String(f.get('password')));
+     else await login(String(f.get('email')).trim(),String(f.get('password')));
+   }else if(form.id==='password-form'){await request('/auth/v1/user',{method:'PUT',jwt:await token(),body:{password:String(f.get('newpassword')||'')}});state.recovery=false;toast('Пароль обновлён.');render();}else setConfig(String(f.get('url')||''),String(f.get('key')||''));
+ }catch(err){toast(err.message);}finally{if(btn&&btn.isConnected)btn.disabled=false;}
+});
+document.addEventListener('change',async ev=>{
+ const t=ev.target;if(t.id==='import-file'&&t.files?.[0]){
+   try{if(t.files[0].size>2_000_000)throw new Error('Файл больше 2 МБ');importData(await t.files[0].text());}catch(err){toast(err.message);}t.value='';
+ }else if(t.dataset.field==='mood')saveSessionField('mood',t.value);
+});
+document.addEventListener('input',ev=>{if(ev.target.dataset.field==='notes')saveSessionField('notes',ev.target.value);});
+window.addEventListener('online',()=>{state.isOnline=true;sync();});
+window.addEventListener('offline',()=>{state.isOnline=false;updateSyncTag();});
+window.addEventListener('focus',()=>{if(state.user)sync();});
+
+async function boot(){
+ const prior=safeRead('statika.auth.v1',null);
+ if(prior?.user?.id && configured()){
+   state.auth=prior;state.user=prior.user;
+ }
+ loadSaved();state.week=nextWeek();
+ await handleHashLogin();
+ if(state.user){sync().then(()=>render());}
+ render();
+ if('serviceWorker' in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js').then(reg=>{reg.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{});});}).catch(()=>{});
+}
+
+/* Статика 2.0 — рабочая надстройка над v1. Формат данных v1 сохранён. */
+const v2 = {
+ origin:'home', selected:{week:1,day:1}, studyId:'side', studyBad:false,
+ screenBeforeStudy:'plan', historyReview:false, repeat:false,
+ stage:'idle', stageBefore:null, duration:0, remaining:0, deadline:0, interval:null, lastCount:4,
+ sound:safeRead('statika.v2.sound',true), voice:safeRead('statika.v22.voice',false),
+ rest:num(safeRead('statika.v2.rest',60),30,120), audio:null
+};
+// 2.1: управление экраном и заранее сформированной аудиодорожкой упражнения.
+const bg2 = {
+ mode:['awake','locked'].includes(safeRead('statika.v21.screen','awake'))?safeRead('statika.v21.screen','awake'):'awake',
+ wake:null, wakeState:'idle', player:null, track:null, cursor:0, interval:null,
+ spoken:null, lockedHiddenAt:0, lockWarning:false
+};
+const ERRORS = {
+ hang:['Раскачивание тела вместо удержания','Напряжение шеи, плечи у ушей'],scap:['Рывки и сильное сгибание локтей','Слишком большая амплитуда'],
+ knee:['Поднимать колени рывком','Раскачивать корпус'],plank:['Прогиб в пояснице','Таз слишком высоко'],high:['Провисание поясницы','Избыточная нагрузка на кисти'],
+ push:['Провисание живота','Резкий темп без контроля'],wall:['Колени заваливаются внутрь','Опускаться ниже комфортной глубины'],bridge:['Переразгибать поясницу','Поднимать таз рывком'],
+ side:['Плечо уходит к уху','Таз провисает'],shortside:['Плечо и локоть не на одной линии','Таз провисает'],
+ lunge:['Потеря равновесия','Колено уходит внутрь'],deadbug:['Поясница отрывается от пола','Движения выполняются рывком'],
+ hollow:['Прогиб в пояснице','Задержка дыхания'],leglift:['Сильный наклон назад','Рывок вместо контроля'],
+ tuck:['Раскачивание корпуса','Чрезмерное напряжение поясницы'],support:['Плечи подняты к ушам','Сильный прогиб спины'],
+ balance:['Далеко отходить от стены','Смотреть под ноги и сутулиться']
+};
+function statusOf(week,day){
+ const ss=findFor(week,day),full=ss.find(s=>s.completed&&progress(s).done===progress(s).total),
+ partial=ss.find(s=>s.completed&&progress(s).done>0&&progress(s).done<progress(s).total),
+ draft=ss.find(s=>!s.completed&&progress(s).done>0);
+ if(draft)return {label:'Продолжить',kind:'active',session:draft};
+ if(full)return {label:'Выполнено полностью',kind:'full',session:full};
+ if(partial)return {label:'Выполнено частично',kind:'partial',session:partial};
+ return {label:'Начать',kind:'new',session:null};
+}
+completedWeeks=function(){let n=0;for(let w=1;w<=12;w++){if([1,2,3].every(d=>statusOf(w,d).kind==='full'))n++;else break;}return n;};
+function selectedPlan(){const s=currentSession();return s?plan(s.week,s.day):plan(v2.selected.week,v2.selected.day);}
+function selectedProgress(){const s=currentSession();return s?progress(s):{done:0,total:selectedPlan().items.reduce((n,e)=>n+countSlots(e),0),pct:0};}
+function clearMachine(){
+ localStorage.removeItem('statika.v23.inflight');stopRecordedTrack();releaseScreenLock();
+ if(v2.interval)clearInterval(v2.interval);v2.interval=null;v2.stage='idle';v2.stageBefore=null;v2.remaining=0;v2.lastCount=4;
+}
+function pauseMachine(){
+ if(!['countdown','hold','rest'].includes(v2.stage))return;
+ if(bg2.player){bg2.player.pause();stopMediaTick();v2.stageBefore=v2.stage;v2.stage='paused';}
+ else{v2.remaining=Math.max(0,(v2.deadline-Date.now())/1000);v2.stageBefore=v2.stage;v2.stage='paused';if(v2.interval)clearInterval(v2.interval);v2.interval=null;}
+ releaseScreenLock();if(state.screen==='workout')render();
+}
+function openWorkout(week,day,{repeat=false,sessionId=null,origin=null}={}){
+ if(v2.stage==='paused' && v2.selected.week===week && v2.selected.day===day && !repeat && !sessionId){v2.origin=origin || (state.screen==='plan'?'plan':v2.origin);navigate('workout');return;}
+ if(state.screen==='workout')pauseMachine();
+ stopTimer();clearMachine();v2.selected={week,day};v2.origin=origin|| (state.screen==='plan'?'plan':'home');v2.historyReview=!!sessionId;v2.repeat=repeat;
+ let s=sessionId?state.sessions.find(x=>x.id===sessionId):null;
+ if(!s&&!repeat){const st=statusOf(week,day);if(st.kind==='active'||st.kind==='partial')s=st.session;}
+ state.activeId=s?.id||null;state.exerciseIndex=0;state.slotIndex=0;
+ const p=selectedPlan(),ss=s;
+ outer:for(let i=0;i<p.items.length;i++)for(let j=0;j<countSlots(p.items[i]);j++){
+   if(!((ss?.sets?.[p.items[i].id]||[])[j]>0)){state.exerciseIndex=i;state.slotIndex=j;break outer;}
+ }
+ navigate('workout');
+}
+initSession=function(week,day){openWorkout(week,day);};
+function ensureSession(){
+ let s=currentSession();if(s){if(s.completed){s.completed=false;touchSession(s);}return s;}
+ const {week,day}=v2.selected;
+ s={id:uid(),user_id:state.user?.id||null,week,day,performed_at:now(),updated_at:now(),completed:false,mood:'',notes:'',sets:{}};
+ state.sessions.unshift(s);state.activeId=s.id;touchSession(s);return s;
+}
+function getNextSlot(ex,starting){const s=currentSession();const arr=s?.sets?.[ex.id]||[];
+ for(let j=starting;j<countSlots(ex);j++)if(!(arr[j]>0))return j;return -1;}
+function nextExerciseIndex(){const p=selectedPlan(),s=currentSession();for(let i=state.exerciseIndex+1;i<p.items.length;i++){
+ const ex=p.items[i],arr=s?.sets?.[ex.id]||[];if(Array.from({length:countSlots(ex)},(_,j)=>arr[j]).some(x=>!(x>0)))return i;}return -1;}
+function audioInit(){try{v2.audio ||= new (window.AudioContext||window.webkitAudioContext)();if(v2.audio.state==='suspended')v2.audio.resume().catch(()=>{});}catch{}}
+function beep(type='tick'){
+ if(!v2.sound)return;
+ try{audioInit();if(!v2.audio)return;const ctx=v2.audio,t=ctx.currentTime,osc=ctx.createOscillator(),g=ctx.createGain();
+ osc.frequency.value=type==='start'?1120:type==='end'?650:790;osc.type='sine';g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.13,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+(type==='end'?.38:.17));osc.connect(g);g.connect(ctx.destination);osc.start(t);osc.stop(t+(type==='end'?.4:.2));}catch{}
+}
+// Только настоящий голосовой движок устройства. Нечитаемые PCM-клипы 2.1 удалены.
+function russianVoice(){
+ if(!('speechSynthesis' in window))return null;
+ const voices=window.speechSynthesis.getVoices()||[];
+ return voices.find(x=>/^ru([-_]|$)/i.test(x.lang||'')) || null;
+}
+function voiceAvailability(){return russianVoice()?'Русский голос устройства обнаружен. Озвучка экспериментальная; сигналы остаются основным сопровождением.':'Русский голос пока не обнаружен. Можно проверить его наличие кнопкой ниже.';}
+// iOS can transiently report hidden while its speech engine takes audio focus.
+// Only a sustained background transition may pause an awake-mode workout.
+let backgroundPauseCheck=null;
+function cancelBackgroundPauseCheck(){
+ if(backgroundPauseCheck!==null){clearTimeout(backgroundPauseCheck);backgroundPauseCheck=null;}
+}
+function scheduleBackgroundPauseCheck(){
+ cancelBackgroundPauseCheck();
+ backgroundPauseCheck=setTimeout(()=>{
+  backgroundPauseCheck=null;
+  if(document.hidden&&bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+ },1800);
+}
+function speak(text){
+ if(!v2.voice||bg2.mode==='locked')return false; // Screen-off voice is not guaranteed; awake mode uses native TTS
+ const voice=russianVoice();if(!voice)return false;
+ try{
+  const speech=new SpeechSynthesisUtterance(text);
+  speech.voice=voice;speech.lang='ru-RU';speech.rate=.92;speech.volume=1;
+  window.speechSynthesis.cancel();window.speechSynthesis.speak(speech);
+  return true;
+ }catch(e){console.warn('Не удалось воспроизвести русскую речь:',e);return false;}
+}
+
+function machinePhase(phase,duration){
+ if(v2.interval)clearInterval(v2.interval);v2.interval=null;v2.stage=phase;v2.duration=duration;v2.remaining=duration;v2.deadline=Date.now()+1000*duration;v2.lastCount=4;
+ if(['countdown','hold','rest'].includes(phase)){v2.interval=setInterval(machineTick,100);machineTick();}
+ if(state.screen==='workout')render();
+}
+function prepCountdown(){machinePhase('countdown',6);speak('Приготовься');}
+function beginWork(){
+ const ex=selectedPlan().items[state.exerciseIndex];beep('start');speak('Начали');
+ if(ex.kind==='hold'){safeWrite('statika.v23.inflight',{sessionId:currentSession()?.id||null,week:v2.selected.week,day:v2.selected.day,exercise:ex.id,slot:state.slotIndex,at:Date.now()});machinePhase('hold',ex.target);}else {machinePhase('reps',0);}
+}
+function persistSet(actual){
+ const s=ensureSession(),ex=selectedPlan().items[state.exerciseIndex];const val=Math.round(num(actual,1,ex.kind==='hold'?300:100));
+ const arr=Array.isArray(s.sets[ex.id])?[...s.sets[ex.id]]:[];arr[state.slotIndex]=val;s.sets[ex.id]=arr;localStorage.removeItem('statika.v23.inflight');touchSession(s);
+ return val;
+}
+function endApproach(actual){
+ const ex=selectedPlan().items[state.exerciseIndex];persistSet(actual);beep('end');
+ const next=getNextSlot(ex,state.slotIndex+1);
+ if(next>=0){state.slotIndex=next;speak('Отдых');machinePhase('rest',v2.rest);}
+ else {v2.stage='between';if(v2.interval)clearInterval(v2.interval);v2.interval=null;
+   speak('Упражнение завершено');render();}
+}
+function machineTick(){
+ if(!['countdown','hold','rest'].includes(v2.stage)){if(v2.interval)clearInterval(v2.interval);v2.interval=null;return;}
+ v2.remaining=Math.max(0,(v2.deadline-Date.now())/1000);
+ if(v2.stage==='countdown'){
+  const c=Math.max(1,Math.ceil(v2.remaining));if(c!==v2.lastCount&&v2.remaining>.02){beep('tick');v2.lastCount=c;}
+  if(v2.remaining<=0){beginWork();return;}
+ }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
+ else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
+ const n=$('#v2-clock');if(n)n.textContent=rc72Clock(v2.stage,v2.remaining,v2.duration);updateV24Progress();
+ const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
+}
+function updateV24Progress(){
+ const el=document.getElementById('v24-progress');if(!el)return;
+ const duration=Math.max(.01,Number(v2.duration)||0);
+ const pct=['countdown','hold','rest','paused'].includes(v2.stage)?Math.max(0,Math.min(100,(1-(Number(v2.remaining)||0)/duration)*100)):0;
+ el.style.width=pct.toFixed(2)+'%';
+ const track=el.parentElement;if(track){track.setAttribute('aria-valuenow',String(Math.round(pct)));track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');}
+}
+function startApproaches(){
+ if(!['idle','between'].includes(v2.stage))return;
+ v2.historyReview=false;const ex=selectedPlan().items[state.exerciseIndex];
+ if(ex.kind==='hold'&&bg2.mode==='locked')return startRecordedTrack();
+ audioInit();if(bg2.mode==='awake')requestScreenLock();prepCountdown();
+}
+function resumeMachine(){
+ if(v2.stage!=='paused')return;
+ if(bg2.player){
+  const wanted=v2.stageBefore||'countdown';v2.stage=wanted;v2.stageBefore=null;
+  bg2.player.play().then(()=>{if(bg2.mode==='awake')requestScreenLock();startMediaTick();reconcileRecordedTrack();}).catch(()=>{v2.stage='paused';toast('Браузер не разрешил продолжить аудио. Попробуй нажать ещё раз.');render();});
+  render();return;
+ }
+ const phase=v2.stageBefore||'countdown';v2.stageBefore=null;machinePhase(phase,v2.remaining);if(bg2.mode==='awake')requestScreenLock();
+}
+function earlyEnd(){
+ if(v2.stage!=='hold')return;
+ const ex=selectedPlan().items[state.exerciseIndex];const elapsed=Math.floor(ex.target-v2.remaining);
+ if(elapsed<1){pauseMachine();toast('Подход не записан — прошло меньше секунды.');return;}
+ if(bg2.player){
+  stopRecordedTrack();persistSet(elapsed);
+  v2.stage='between';releaseScreenLock();render();toast('Подход записан. Для безопасности дальнейшее выполнение запускается вручную.');
+  return;
+ }
+ endApproach(elapsed);
+}
+function afterExercise(){rc7PickerOpen=false;stopRecordedTrack();releaseScreenLock();const n=nextExerciseIndex();if(n<0){v2.stage='done';render();return;}state.exerciseIndex=n;state.slotIndex=getNextSlot(selectedPlan().items[n],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();}
+function switchToStudy(id,from='workout'){if(['countdown','hold','rest'].includes(v2.stage))pauseMachine();v2.studyId=id;v2.studyBad=false;v2.screenBeforeStudy=from;navigate('learn');}
+function updateMachineSettings(){
+ safeWrite('statika.v2.sound',v2.sound);safeWrite('statika.v22.voice',v2.voice);safeWrite('statika.v2.rest',v2.rest);
+ safeWrite('statika.v21.screen',bg2.mode);
+}
+function machineTitle(){return {idle:'ГОТОВ К СТАРТУ',countdown:'ПРИГОТОВЬСЯ',hold:'УДЕРЖИВАЙ',rest:'ОТДЫХ',reps:'ПОВТОРЕНИЯ',paused:'ПАУЗА',between:'УПРАЖНЕНИЕ ЗАВЕРШЕНО',done:'ВСЕ УПРАЖНЕНИЯ ПРОЙДЕНЫ'}[v2.stage]||'ГОТОВ К СТАРТУ';}
+function workout(){
+ const p=selectedPlan(),s=currentSession(),pg=selectedProgress(),ex=p.items[state.exerciseIndex],data=LIB[ex.id];
+ const a=s?.sets?.[ex.id]||[],count=countSlots(ex),isDone=count&&Array.from({length:count},(_,i)=>a[i]).every(x=>x>0);
+ const atEnd=v2.stage==='between'||v2.stage==='done',canStart=v2.stage==='idle';
+ const summary=v2.stage==='countdown'?'После сигнала начинай подход.':v2.stage==='hold'?'Сохраняй технику и спокойное дыхание.':v2.stage==='rest'?'Отдых идёт автоматически. Следующий подход начнётся после 3–2–1.':v2.stage==='reps'?'Выполни повторения без спешки. Затем отметь подход.':v2.stage==='paused'?'Тренировка на паузе. Отсчёт продолжится по кнопке.':atEnd?'Переход к другому упражнению только вручную.':'Нажми «Начать». Остальные подходы упражнения пойдут автоматически.';
+ const displayPhase=v2.stage==='paused'?(v2.stageBefore||'countdown'):v2.stage;
+ const digits=['countdown','hold','rest','paused'].includes(v2.stage)?rc72Clock(displayPhase,v2.remaining,v2.duration):rc7Time(ex.target);
+ let controls='';
+ if(canStart&&!v2.historyReview)controls=`<button class="btn btn-primary btn-wide" data-v2-action="start">Начать</button>`;
+ if(['countdown','hold','rest'].includes(v2.stage))controls=`<button class="btn btn-outline" data-v2-action="pause">Ⅱ Пауза</button>${v2.stage==='hold'?'<button class="btn btn-muted" data-v2-action="early">Завершить раньше</button>':''}`;
+ if(v2.stage==='paused')controls='<button class="btn btn-primary btn-wide" data-v2-action="resume">Продолжить</button><button class="btn btn-muted" data-v2-action="abort">Прервать подход</button>';
+ if(v2.stage==='reps')controls=`<label class="v2-rep-entry">Повторений <input type="number" inputmode="numeric" id="v2-reps-input" min="1" max="100" value="${ex.target}"></label><button class="btn btn-primary" data-v2-action="reps">✓ Записать</button><button class="btn btn-muted" data-v2-action="abort">Прервать</button>`;
+ if(atEnd){
+   if(v2.stage==='between'&&!isDone){
+     controls='<button class="btn btn-primary btn-wide" data-v2-action="continue-current">▶ Продолжить оставшиеся подходы</button><button class="btn btn-muted" data-v2-action="next">Пропустить остаток и перейти →</button>';
+   }else{
+     controls=nextExerciseIndex()<0?'<button class="btn btn-primary btn-wide" data-v2-action="finish">✓ Завершить тренировку</button>':'<button class="btn btn-primary btn-wide" data-v2-action="next">Следующее</button>';
+   }
+ }
+ if(v2.historyReview)controls='<div class="subtle-card">Открыта запись дневника. Можно исправить результат любого подхода ниже.</div>';
+ const active=['countdown','hold','rest'].includes(v2.stage);
+ const stagePhoto=v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready';
+ const phaseLabel=ex.id==='hang'?(stagePhoto==='active'?'Лопатки вниз · локти прямые':stagePhoto==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены'):esc(data.cue);
+ const firstAction=controls;
+ return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">${v2.historyReview?'← В дневник':'← К программе'}</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
+ <div class="rc5-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><button class="rc7-picker-trigger" data-rc7-picker="toggle" aria-expanded="${rc7PickerOpen}" ${active?'disabled':''}>${state.exerciseIndex+1} из ${p.items.length}<span class="rc7-chevron ${rc7PickerOpen?'up':''}"></span></button></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span></div>${rc7PickerOpen?`<div class="rc7-picker-list" role="listbox" aria-label="Выбор упражнения">${p.items.map((item,i)=>`<button class="rc7-picker-row ${i===state.exerciseIndex?'selected':''}" role="option" aria-selected="${i===state.exerciseIndex}" data-v2-ex="${i}"><span class="rc7-picker-number">${i+1}</span><span class="rc7-picker-name">${esc(LIB[item.id].name)}</span>${i===state.exerciseIndex?'<span class="rc7-check">✓</span>':''}</button>`).join('')}</div>`:''}</div>
+ <article class="workout-card v2-workout rc5-workout ${v2.historyReview?'rc7-history-review':''}">
+ <div class="v23-tech"><button class="v23-tech-photo" data-rc5="tech" aria-label="Открыть технику упражнения">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${stagePhoto}.webp" alt="${esc(data.name)}: ${stagePhoto}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button></div>
+ <div class="rc5-caption"><span id="v23-tech-label">${phaseLabel}</span><span>${state.exerciseIndex+1} / ${p.items.length}</span></div>
+ <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':digits}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
+ <div class="rc5-actions"><button data-rc5="sound" aria-label="${v2.sound?'Выключить':'Включить'} звук">${rc7Icon(v2.sound?'sound':'mute')}</button><button data-rc5="tech" aria-label="Техника упражнения">${rc7Icon('info')}</button><button data-rc5="menu" aria-label="Дополнительные действия">${rc7Icon('more')}</button></div>
+ <div class="rc5-advanced" id="rc5-advanced">
+ <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
+ <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
+ </details><details class="v2-edit"><summary>Исправить результат подхода</summary><p>Выбери подход выше и введи фактическое значение.</p><div class="record-line"><input id="v2-actual" type="number" inputmode="numeric" min="1" max="${ex.kind==='hold'?300:100}" value="${a[state.slotIndex]||ex.target}"><button class="btn btn-outline" data-v2-action="edit-set">Сохранить ${ex.kind==='hold'?'секунды':'повторения'}</button></div></details>
+ <div class="set-row">${Array.from({length:count},(_,i)=>`<button data-v2-slot="${i}" class="set-pill ${a[i]>0?'recorded':''} ${i===state.slotIndex?'active':''}" ${['countdown','hold','rest','reps'].includes(v2.stage)?'disabled':''} title="${slotLabel(ex,i)}">${a[i]>0?'✓ ':''}${i+1}${a[i]>0?' · '+a[i]:''}</button>`).join('')}</div>
+ <div class="current-set">${slotLabel(ex,state.slotIndex)} ${a[state.slotIndex]>0?'· записан':''}</div>
+ </div></article>
+ <section class="feelings"><h3>Самочувствие и заметки</h3><label for="mood">Как ощущалась нагрузка?</label><select id="mood" data-field="mood"><option value="" ${!s?.mood?'selected':''}>Не выбрано</option><option value="easy" ${s?.mood==='easy'?'selected':''}>Легко</option><option value="normal" ${s?.mood==='normal'?'selected':''}>Нормально</option><option value="hard" ${s?.mood==='hard'?'selected':''}>Тяжело</option></select><label for="notes">Комментарии</label><textarea id="notes" data-field="notes" maxlength="4000" rows="2" placeholder="Например: держал корпус стабильно, но быстро устали предплечья…">${esc(s?.notes||'')}</textarea></section>
+ ${!v2.historyReview?`<button class="btn btn-finish btn-wide" data-v2-action="finish">${pg.done===pg.total?'✓ Завершить тренировку':'Завершить и сохранить частично'} (${pg.done}/${pg.total})</button>`:`<button class="btn btn-outline btn-wide" data-nav="history">← Вернуться в дневник</button>`}
+ <p class="fine-print center">В режиме «Экран включён» переход в другой раздел ставит таймер на паузу. Режим с выключенным экраном экспериментальный: если браузер остановит аудио, приложение предложит возобновить его после возврата. При завершении упражнения потребуется вручную запустить следующее.</p>`;
+}
+function learning(){
+ const id=LIB[v2.studyId]?v2.studyId:'side';const ex=LIB[id];
+ return `${heading('РЕЖИМ ОБУЧЕНИЯ','Правильная техника','Выбери упражнение, посмотри схему положения тела и разбери частые ошибки. Это схематичные подсказки, а не видеоинструкция.')}
+ <div class="study-library">${Object.entries(LIB).map(([k,x])=>`<button data-v2-study="${k}" class="${id===k?'selected':''}">${esc(x.name)}</button>`).join('')}</div>
+ <article class="learn-card"><div class="eyebrow">${ex.kind==='hold'?'СТАТИЧЕСКОЕ УДЕРЖАНИЕ':'ДВИЖЕНИЕ НА ПОВТОРЕНИЯ'}</div><h2>${esc(ex.name)}</h2><div class="diagram" aria-label="Схема упражнения">${id==='hang'?'<img class="v23-learn-photo" src="./media/hang-sequence.webp" alt="Активный вис: отдых, свободный вис, активный вис; сравнительная последовательность">':''}${window.StaticDiagram?window.StaticDiagram(id,v2.studyBad):'<p>Визуальная схема недоступна</p>'}<span class="diagram-badge ${v2.studyBad?'wrong':''}">${v2.studyBad?'× Частая ошибка':'✓ Положение тела'}</span></div>
+ <div class="diagram-switch"><button data-v2-scene="correct" class="${v2.studyBad?'':'selected'}">✓ Правильно</button><button data-v2-scene="wrong" class="${v2.studyBad?'selected wrong':''}">× Ошибки</button></div>
+ <div class="study-grid"><div class="coaching"><strong>Как делать</strong><p>${esc(ex.instruction)}</p><div class="coaching-cue">✓ ${esc(ex.cue)}</div></div><div class="coaching"><strong>Чего избегать</strong><ul>${(ERRORS[id]||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div></div>
+ <details class="v2-fallback"><summary>Если сложно — облегчённый вариант</summary><p>${esc(ex.fallback)}</p></details>
+ <button class="btn btn-primary btn-wide" data-v2-action="back-to-training">${v2.screenBeforeStudy==='workout'?'← Вернуться к тренировке':'← Вернуться к программе'}</button>
+ <p class="fine-print">Изображения схематичные; перед освоением сложных упражнений желательно проверить технику с квалифицированным тренером. Прекращай выполнение при боли или головокружении.</p></article>`;
+}
+function home(){
+ const w=nextWeek(),weeks=completedWeeks(),done=state.sessions.filter(s=>s.completed).length,unique=new Set(state.sessions.filter(s=>s.completed).map(s=>s.week+':'+s.day)).size;
+ return `${heading('МОЯ ТРЕНИРОВОЧНАЯ ПРОГРАММА','Сильнее. Спокойнее. Точнее.','12 недель калистеники. Обучение технике и тренировки с автоматическим отсчётом.')}
+ <section class="hero"><div class="hero-tag">ТЕКУЩИЙ ЭТАП</div><h2>Неделя ${w} <span>/ 12</span></h2><div class="hero-sub">${esc(PHASES.find(p=>w>=p.from&&w<=p.to).label)} · 3 занятия в неделю</div><div class="meter"><span style="width:${Math.round(weeks/12*100)}%"></span></div><div class="hero-footer"><span>${weeks} из 12 недель полностью пройдено</span><span>${Math.round(weeks/12*100)}%</span></div></section>
+ <div class="two-stats"><div class="stat"><div class="stat-value">${done}</div><div class="stat-label">Сессий завершено</div></div><div class="stat"><div class="stat-value">${Math.round(unique/36*100)}%</div><div class="stat-label">Из 36 занятий закрыто</div></div></div>
+ <div class="v2-mode-cards"><button data-nav="plan"><span>▦</span><strong>Программа</strong><small>Все 12 недель и 36 занятий</small></button></div>
+ <div class="section-title"><h2>Неделя ${w}</h2><button class="text-link" data-nav="plan">Все недели ↗</button></div><div class="day-list">${[1,2,3].map(d=>{const p=plan(w,d),st=statusOf(w,d);return `<button class="day-card" data-start="${w}:${d}"><div class="day-num">0${d}</div><div class="day-info"><strong>${esc(p.title)}</strong><span>${esc(p.subtitle)}</span><div class="day-meta">${p.items.length} упражнений · 25–35 мин</div></div><span class="state-label ${st.kind==='full'?'finished':''}">${st.label} →</span></button>`;}).join('')}</div>
+ <div class="note-card"><strong>Как устроена автоматическая тренировка</strong><p>Начни упражнение вручную. Затем приложение отсчитает 3–2–1 и проведёт подходы с отдыхом. Следующее упражнение включается только по твоей команде.</p></div>`;
+}
+function planView(){
+ const w=state.week,phase=PHASES.find(p=>w>=p.from&&w<=p.to);
+ return `${heading('КАРТА КУРСА','Программа 12 недель','Три занятия в неделю. Техника важнее длительности удержания.')}${weekSelector(w)}
+ <div class="phase-card"><div class="eyebrow">НЕДЕЛИ ${phase.from}–${phase.to}</div><h2>${esc(phase.label)}</h2><p>${esc(phase.sub)}</p></div>
+ ${[1,2,3].map(d=>{const p=plan(w,d),st=statusOf(w,d);return `<article class="plan-card"><div class="plan-header"><div><div class="eyebrow">ДЕНЬ ${d}</div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.subtitle)}</p></div><span class="tag ${st.kind==='full'?'done':''}">${st.label}</span></div>
+ <div class="plan-exercises">${p.items.map(x=>`<button class="plan-exercise v2-ex-preview" data-v2-study="${x.id}"><span>${esc(LIB[x.id].name)}</span><small>${amountLabel(x)}</small></button>`).join('')}</div>
+ <button class="btn btn-light btn-wide" data-start="${w}:${d}">${st.kind==='full'?'Просмотреть / повторить':st.kind==='partial'?'Продолжить неполную тренировку':st.kind==='active'?'Продолжить тренировку':'Начать тренировку'} <span>→</span></button></article>`;}).join('')}
+ <div class="note-card"><strong>Прогрессия</strong><p>Планы следующих недель доступны для ознакомления. Увеличивай нагрузку только если удержания выполняются с хорошей техникой и без боли. Если нагрузка высока, оставайся на текущем варианте упражнения.</p></div>`;
+}
+function history(){
+ const all=state.sessions.filter(s=>progress(s).done>0).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at)),completed=all.filter(s=>s.completed);
+ const total=all.reduce((sum,s)=>sum+progress(s).done,0);
+ const bars=Array.from({length:12},(_,i)=>({w:i+1,c:[1,2,3].filter(d=>statusOf(i+1,d).kind==='full').length}));
+ return `${heading('МОЙ ПРОГРЕСС','Дневник тренировок','История подходов, завершённые и частично выполненные занятия.')}
+ <div class="two-stats"><div class="stat"><div class="stat-value">${completed.length}</div><div class="stat-label">Закрытых сессий</div></div><div class="stat"><div class="stat-value">${total}</div><div class="stat-label">Подходов записано</div></div></div>
+ <section class="chart-card"><h2>Полностью выполненные дни</h2><div class="bars">${bars.map(c=>`<div class="bar-col"><div class="bar-track"><div class="bar-fill" style="height:${c.c/3*100}%"></div></div><small>${c.w}</small></div>`).join('')}</div><p class="fine-print">Каждый столбец — до трёх полностью выполненных занятий за неделю. Частичные записи остаются в истории.</p></section>
+ <div class="section-title"><h2>История</h2><button class="text-link" data-action="export">Экспорт JSON ↓</button></div>
+ ${all.length?all.map(s=>{const pg=progress(s),label=s.completed?(pg.done===pg.total?'Выполнено полностью':'Выполнено частично'):'В процессе';return `<article class="history-row"><div class="history-icon">${s.completed&&pg.done===pg.total?'✓':'◴'}</div><div class="history-body"><strong>Неделя ${s.week} · ${esc(DAYS[s.day-1].title)}</strong><span>${fmtDate(s.performed_at)} · ${pg.done} из ${pg.total} подходов · ${label}</span>${s.mood?`<small>Нагрузка: ${{easy:'легко',normal:'нормально',hard:'тяжело'}[s.mood]}</small>`:''}${s.notes?`<p>${esc(s.notes)}</p>`:''}</div><button class="history-action" data-open-session="${s.id}" title="Просмотреть и исправить">↗</button></article>`;}).join(''):`<div class="empty"><h3>Пока нет подходов</h3><p>Открой первую тренировку и начни упражнение — результат появится здесь.</p><button class="btn btn-primary" data-start="1:1">Начать</button></div>`}
+ <div class="note-card"><strong>Резервная копия</strong><p>Экспорт сохраняет тот же формат JSON, что и в версии 1.0. Перед обновлением рекомендуем скачать резервную копию.</p></div>`;
+}
 const oldShell=shell;
 shell=function(content){
- const nav=[['home','Сегодня','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 11 9-8 9 8v10H3z"/></svg>'],['plan','Программа','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>'],['history','Дневник','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>'],['account','Аккаунт','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3-8 8-8s8 3 8 8"/></svg>']];
+ const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['history','Дневник','▥'],['account','Аккаунт','◉']];
  return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА</span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());};
-navigate=function(screen){if(screen!=='history'){diaryOpenedId=null;diaryEditingId=null;}if(!['home','plan','workout','learn','history','account'].includes(screen))return;
+navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
  if(state.screen==='workout'&&screen!=='workout'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
  state.screen=screen;render();window.scrollTo({top:0,behavior:'instant'});
 };
@@ -344,19 +733,6 @@ finishWorkout=function(){const s=currentSession(),pg=selectedProgress();if(!s||p
  if(pg.done<pg.total&&!confirm(`Выполнено ${pg.done} из ${pg.total} подходов. Сохранить как «Выполнено частично»?`))return;
  s.completed=pg.done===pg.total;touchSession(s);clearMachine();state.activeId=null;v2.historyReview=false;navigate('history');toast(pg.done===pg.total?'Тренировка выполнена полностью.':'Частичная тренировка сохранена.');
 };
-// RC7.3 diary: distinct read/edit flow, never the timer screen.
-document.addEventListener('click',ev=>{
- const b=ev.target.closest('[data-diary-open],[data-diary-back],[data-diary-resume],[data-diary-edit],[data-diary-save],[data-diary-cancel]');if(!b)return;
- ev.preventDefault();ev.stopImmediatePropagation();
- if(b.dataset.diaryOpen){diaryOpenedId=b.dataset.diaryOpen;diaryEditingId=null;render();window.scrollTo(0,0);return;}
- if(b.hasAttribute('data-diary-back')){diaryOpenedId=null;diaryEditingId=null;render();window.scrollTo(0,0);return;}
- if(b.hasAttribute('data-diary-cancel')){diaryEditingId=null;render();return;}
- if(b.dataset.diaryEdit){diaryEditingId=b.dataset.diaryEdit;render();return;}
- if(b.dataset.diaryResume){const s=state.sessions.find(x=>x.id===b.dataset.diaryResume);if(s){diaryOpenedId=null;diaryEditingId=null;openWorkout(s.week,s.day,{origin:'plan'});}return;}
- if(b.dataset.diarySave){const s=state.sessions.find(x=>x.id===b.dataset.diarySave);if(!s)return;
- const inputs=[...document.querySelectorAll('[data-diary-set]')];const updates={};for(const input of inputs){const raw=input.value.trim(),val=raw===''?0:Number(raw);if(!Number.isInteger(val)||val<0||val>Number(input.max)){toast('Проверь значения подходов: нужны целые числа в допустимом диапазоне.');input.focus();return;}const id=input.dataset.diarySet;updates[id] ||= [...(s.sets[id]||[])];updates[id][Number(input.dataset.diaryIndex)]=val;}
- for(const [id,arr] of Object.entries(updates))s.sets[id]=arr;s.completed=diaryFull(s);touchSession(s);diaryEditingId=null;render();toast('Результаты сохранены.');return;}
-},true);
 // События захватываются до обработчиков версии 1.0, чтобы поведение было единым.
 function rc5Close(){document.getElementById('rc5-modal')?.remove();}
 function rc5Modal(title,body,back=false){rc5Close();const el=document.createElement('div');el.id='rc5-modal';el.className='rc5-modal';el.innerHTML=`<div class="rc5-scrim" data-rc5-close></div><section class="rc5-sheet" role="dialog" aria-modal="true" aria-label="${title}"><header>${back?'<button class="rc7-back" data-rc7-back aria-label="Назад к действиям">← Действия</button>':''}<strong>${title}</strong><button data-rc5-close aria-label="Закрыть">×</button></header>${body}</section>`;document.body.appendChild(el);document.body.classList.add('rc5-modal-open');el.querySelector('[data-rc5-close]')?.focus();}
@@ -449,5 +825,47 @@ window.addEventListener('pagehide',()=>{
  // В экспериментальном режиме аудиодорожку не останавливаем принудительно.
  if(bg2.mode==='awake'&&['countdown','hold','rest'].includes(v2.stage))scheduleBackgroundPauseCheck();
 });
+
+
+/* RC7.3 diary/navigation patch, retaining all RC7.2 startup and timer logic. */
+let diaryOpenedId=null;
+let diaryEditingId=null;
+function diaryCompletedCount(s){const p=plan(s.week,s.day);return p.items.filter(ex=>{const a=s.sets?.[ex.id]||[];return Array.from({length:countSlots(ex)},(_,i)=>a[i]).every(x=>Number(x)>0);}).length;}
+function diaryFull(s){return diaryCompletedCount(s)===plan(s.week,s.day).items.length;}
+function diaryLabel(s){return diaryFull(s)?'Завершено':s.completed?'Завершена частично':'В процессе';}
+function diaryCard(s){const p=plan(s.week,s.day),done=diaryCompletedCount(s),pct=Math.round(100*done/p.items.length),full=diaryFull(s);
+ return `<button type="button" class="diary-card ${!full?'diary-incomplete':''}" data-diary-open="${s.id}"><span class="diary-status-icon ${full?'complete':''}">${full?'✓':'◔'}</span><span class="diary-card-body"><span class="diary-card-title">День ${s.day} · ${esc(p.title)}</span><span class="diary-card-detail">Выполнено ${done} из ${p.items.length} упражнений</span><span class="diary-meter"><span style="width:${pct}%"></span></span></span><span class="diary-card-side"><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span><span class="diary-pct">${pct}%</span></span><span class="diary-arrow">›</span></button>`;
+}
+function diaryOverview(){const all=state.sessions.filter(s=>progress(s).done>0).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at));const full=all.filter(diaryFull).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
+ const groups=new Map();for(const s of all){if(!groups.has(s.week))groups.set(s.week,[]);groups.get(s.week).push(s);}
+ return `<section class="diary-screen"><div class="diary-heading"><h1>Дневник</h1><button class="diary-export" data-action="export" type="button" title="Скачать резервную копию">Экспорт ↧</button></div><div class="diary-stats"><div><span>Завершено</span><strong>${full}</strong></div><div><span>В процессе</span><strong>${partial}</strong></div><div><span>Всего подходов</span><strong>${sets}</strong></div></div>${all.length?[...groups.entries()].map(([week,entries])=>`<section class="diary-week"><h2>НЕДЕЛЯ ${week}</h2>${entries.map(diaryCard).join('')}</section>`).join(''):`<div class="empty"><h3>Пока нет записей</h3><p>Результаты появятся после первого сохранённого подхода.</p><button class="btn btn-primary" data-start="1:1">Начать тренировку</button></div>`}</section>`;
+}
+function diaryDetail(s){const p=plan(s.week,s.day),done=diaryCompletedCount(s),pct=Math.round(100*done/p.items.length),full=diaryFull(s),editing=diaryEditingId===s.id;
+ return `<section class="diary-screen diary-detail"><button class="diary-back" data-diary-back>← Дневник</button><div class="diary-eyebrow">НЕДЕЛЯ ${s.week} · ДЕНЬ ${s.day}</div><div class="diary-detail-heading"><h1>${esc(p.title)}</h1><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span></div><div class="diary-meta">${fmtDate(s.performed_at)} · ${progress(s).done} из ${progress(s).total} подходов</div><div class="diary-progress"><div><span>Выполнено <b>${done} из ${p.items.length}</b> упражнений</span><strong>${pct}%</strong></div><span class="diary-meter"><span style="width:${pct}%"></span></span></div><div class="diary-exercises">${p.items.map(ex=>{const arr=s.sets?.[ex.id]||[],n=countSlots(ex),complete=Array.from({length:n},(_,i)=>arr[i]).every(x=>Number(x)>0),recorded=Array.from({length:n},(_,i)=>arr[i]).filter(x=>Number(x)>0);return `<article class="diary-exercise"><div class="diary-ex-row"><span class="diary-ex-check ${complete?'complete':''}">${complete?'✓':''}</span><div><strong>${esc(LIB[ex.id].name)}</strong><span>${recorded.length?`${recorded.length} из ${n} подходов · ${recorded.join(', ')} ${ex.kind==='hold'?'сек':'повт'}`:'Не выполнено · '+amountLabel(ex)}</span></div></div>${editing?`<div class="diary-edit-sets">${Array.from({length:n},(_,i)=>`<label>${esc(slotLabel(ex,i))}<input type="number" inputmode="numeric" min="0" max="${ex.kind==='hold'?300:100}" value="${arr[i]>0?arr[i]:''}" placeholder="—" data-diary-set="${esc(ex.id)}" data-diary-index="${i}" aria-label="${esc(LIB[ex.id].name)} ${esc(slotLabel(ex,i))}"></label>`).join('')}</div>`:''}</article>`;}).join('')}</div>${editing?`<button class="diary-primary" data-diary-save="${s.id}">Сохранить изменения</button><button class="diary-secondary" data-diary-cancel>Отмена</button>`:`${!full?`<button class="diary-primary" data-diary-resume="${s.id}">▶ Продолжить тренировку</button>`:''}<button class="diary-secondary" data-diary-edit="${s.id}">✎ Редактировать результаты</button>`}</section>`;
+}
+function history(){const s=state.sessions.find(x=>x.id===diaryOpenedId);if(diaryOpenedId&&!s){diaryOpenedId=null;diaryEditingId=null;}return s?diaryDetail(s):diaryOverview();}
+
+shell=function(content){
+ const nav=[['home','Сегодня','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 11 9-8 9 8v10H3z"/></svg>'],['plan','Программа','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>'],['history','Дневник','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>'],['account','Аккаунт','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3-8 8-8s8 3 8 8"/></svg>']];
+ return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА</span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
+};
+render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());if(state.timer)timerDisplay();};
+navigate=function(screen){if(screen!=='history'){diaryOpenedId=null;diaryEditingId=null;}if(!['home','plan','workout','learn','history','account'].includes(screen))return;
+ if(state.screen==='workout'&&screen!=='workout'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+ state.screen=screen;render();window.scrollTo({top:0,behavior:'instant'});
+};
+// RC7.3 diary: distinct read/edit flow, never the timer screen.
+document.addEventListener('click',ev=>{
+ const b=ev.target.closest('[data-diary-open],[data-diary-back],[data-diary-resume],[data-diary-edit],[data-diary-save],[data-diary-cancel]');if(!b)return;
+ ev.preventDefault();ev.stopImmediatePropagation();
+ if(b.dataset.diaryOpen){diaryOpenedId=b.dataset.diaryOpen;diaryEditingId=null;render();window.scrollTo(0,0);return;}
+ if(b.hasAttribute('data-diary-back')){diaryOpenedId=null;diaryEditingId=null;render();window.scrollTo(0,0);return;}
+ if(b.hasAttribute('data-diary-cancel')){diaryEditingId=null;render();return;}
+ if(b.dataset.diaryEdit){diaryEditingId=b.dataset.diaryEdit;render();return;}
+ if(b.dataset.diaryResume){const s=state.sessions.find(x=>x.id===b.dataset.diaryResume);if(s){diaryOpenedId=null;diaryEditingId=null;openWorkout(s.week,s.day,{origin:'plan',sessionId:s.id});}return;}
+ if(b.dataset.diarySave){const s=state.sessions.find(x=>x.id===b.dataset.diarySave);if(!s)return;
+ const inputs=[...document.querySelectorAll('[data-diary-set]')];const updates={};for(const input of inputs){const raw=input.value.trim(),val=raw===''?0:Number(raw);if(!Number.isInteger(val)||val<0||val>Number(input.max)){toast('Проверь значения подходов: нужны целые числа в допустимом диапазоне.');input.focus();return;}const id=input.dataset.diarySet;updates[id] ||= [...(s.sets[id]||[])];updates[id][Number(input.dataset.diaryIndex)]=val;}
+ for(const [id,arr] of Object.entries(updates))s.sets[id]=arr;s.completed=diaryFull(s);touchSession(s);diaryEditingId=null;render();toast('Результаты сохранены.');return;}
+},true);
 
 boot().catch(err=>{console.error(err);render();toast('Ошибка запуска: '+err.message);});
