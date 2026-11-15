@@ -73,3 +73,26 @@ body:has(.v2-workout) .set-row{margin-top:12px}
 body:has(.v2-workout) .current-set{margin:3px 0 6px;font-size:11px}
 body:has(.v2-workout) .bottom-nav{padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
 @media(max-width:390px){body:has(.v2-workout) .v2-workout h2{font-size:21px}body:has(.v2-workout) .v2-digits strong{font-size:32px!important}}
+
+/* RC3: restore approved single-screen layout and sticky header */
+html{scroll-padding-top:calc(54px + env(safe-area-inset-top,0px));overscroll-behavior-y:contain}
+body{padding-top:env(safe-area-inset-top,0px)}
+.topbar,body:has(.v2-workout) .topbar{position:sticky;top:0;height:50px;z-index:50;background:#0b1420;transform:none;visibility:visible}
+body:has(.v2-workout) .main{padding:9px 12px 25px}
+body:has(.v2-workout) .workout-top{margin:0 0 3px}
+body:has(.v2-workout) .workout-compact-title{margin:0 0 3px}
+body:has(.v2-workout) .exercise-strip{margin:3px 0 6px}
+body:has(.v2-workout) .v2-workout{padding:10px!important}
+body:has(.v2-workout) .v23-tech-photo{background:#1b3935}
+body:has(.v2-workout) .v23-tech-photo img{width:100%;height:min(39dvh,310px);aspect-ratio:auto;object-fit:contain;object-position:center;background:#1b3935}
+body:has(.v2-workout) .v2-machine{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin:5px 0 0!important}
+body:has(.v2-workout) .v2-machine>.eyebrow{grid-column:1;grid-row:1;font-size:12px}
+body:has(.v2-workout) .v2-digits{grid-column:2;grid-row:1}
+body:has(.v2-workout) .v2-digits strong{font-size:42px!important;color:#b1eccb}
+body:has(.v2-workout) .v2-controls{grid-column:1/-1;grid-row:3;margin:4px 0 0}
+body:has(.v2-workout) .v2-controls .btn{font-size:14px;min-height:46px}
+body:has(.v2-workout) .v2-hint{grid-column:1/-1;grid-row:4}
+body:has(.v2-workout) .v2-machine:before{content:'';grid-column:1/-1;grid-row:2;height:6px;border-radius:10px;background:#34564e}
+body:has(.v2-workout) .set-row{margin-top:12px}
+body:has(.v2-workout) .v23-tech-caption{font-size:12px}
+@media(max-height:740px){body:has(.v2-workout) .v23-tech-photo img{height:min(33dvh,240px)}}
