@@ -1,1 +1,1 @@
-self.STATIKA_VERSION='2.3.0-rc7.3.1';
+self.STATIKA_VERSION='2.3.0-rc7.3.2';
