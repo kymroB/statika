@@ -1,7 +1,11 @@
 /* Статика: персональный тренажёр без сторонних JS-зависимостей.
  * Сессии работают без сети. Supabase Auth + PostgREST включаются после настройки.
  */
-const VERSION = '2.3.0-rc4';
+const VERSION = self.STATIKA_VERSION;
+const rc7Time = seconds => String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+let rc7PickerOpen=false;
+let rc7SheetParent=null;
+const rc7Icon=(name)=>({sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a5 5 0 0 1 0 6M18 6a9 9 0 0 1 0 12"/></svg>',mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6m0-6-5 6"/></svg>',info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8v.2"/></svg>',more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>'})[name];
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = (n, min, max) => Math.min(max, Math.max(min, Number.isFinite(Number(n)) ? Number(n) : min));
@@ -98,7 +102,6 @@ const state = {screen:'home',week:1,day:1,user:null,auth:null,sessions:[],pendin
  recovery:false,settings:{supabaseUrl:config.supabaseUrl || BUILTIN.supabaseUrl || '', supabasePublishableKey:config.supabasePublishableKey || BUILTIN.supabasePublishableKey || ''}
 };
 let syncLater = null;
-let rc6PickerOpen = false;
 function configured(){return /^https:\/\/[a-z0-9.-]+\/?$/i.test(state.settings.supabaseUrl.trim()) && /^sb_publishable_[a-zA-Z0-9_\-]+$/.test(state.settings.supabasePublishableKey.trim());}
 function base(){return state.settings.supabaseUrl.trim().replace(/\/$/,'');}
 function apiHeaders(jwt){return {'apikey':state.settings.supabasePublishableKey,'Content-Type':'application/json',...(jwt?{'Authorization':`Bearer ${jwt}`}:{})};}
@@ -537,7 +540,7 @@ function russianVoice(){
 }
 function voiceAvailability(){return russianVoice()?'Русский голос устройства обнаружен. Озвучка экспериментальная; сигналы остаются основным сопровождением.':'Русский голос пока не обнаружен. Можно проверить его наличие кнопкой ниже.';}
 function speak(text){
- if(!v2.voice||bg2.mode==='locked'||bg2.player)return false; // iOS: TTS can interrupt the timing audio track
+ if(!v2.voice||bg2.mode==='locked')return false; // Screen-off voice is not guaranteed; awake mode uses native TTS
  const voice=russianVoice();if(!voice)return false;
  try{
   const speech=new SpeechSynthesisUtterance(text);
@@ -577,7 +580,7 @@ function machineTick(){
   if(v2.remaining<=0){beginWork();return;}
  }else if(v2.stage==='hold'&&v2.remaining<=0){const ex=selectedPlan().items[state.exerciseIndex];endApproach(ex.target);return;}
  else if(v2.stage==='rest'&&v2.remaining<=0){prepCountdown();return;}
- const n=$('#v2-clock');if(n)n.textContent='00:'+String(Math.max(0,Math.ceil(v2.remaining))).padStart(2,'0');updateV24Progress();
+ const n=$('#v2-clock');if(n)n.textContent=rc7Time(Math.max(0,Math.ceil(v2.remaining)));updateV24Progress();
  const photo=$('#v23-photo');if(photo){const phase=v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready';const url='./media/hang-'+phase+'.webp';if(!photo.getAttribute('src')?.endsWith(url))photo.setAttribute('src',url);const label=$('#v23-tech-label');if(label)label.textContent=phase==='active'?'Лопатки вниз · локти прямые':phase==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены';}
 }
 function updateV24Progress(){
@@ -613,7 +616,7 @@ function earlyEnd(){
  }
  endApproach(elapsed);
 }
-function afterExercise(){rc6PickerOpen=false;stopRecordedTrack();releaseScreenLock();const n=nextExerciseIndex();if(n<0){v2.stage='done';render();return;}state.exerciseIndex=n;state.slotIndex=getNextSlot(selectedPlan().items[n],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();}
+function afterExercise(){rc7PickerOpen=false;stopRecordedTrack();releaseScreenLock();const n=nextExerciseIndex();if(n<0){v2.stage='done';render();return;}state.exerciseIndex=n;state.slotIndex=getNextSlot(selectedPlan().items[n],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();}
 function switchToStudy(id,from='workout'){if(['countdown','hold','rest'].includes(v2.stage))pauseMachine();v2.studyId=id;v2.studyBad=false;v2.screenBeforeStudy=from;navigate('learn');}
 function updateMachineSettings(){
  safeWrite('statika.v2.sound',v2.sound);safeWrite('statika.v22.voice',v2.voice);safeWrite('statika.v2.rest',v2.rest);
@@ -627,15 +630,15 @@ function workout(){
  const summary=v2.stage==='countdown'?'После сигнала начинай подход.':v2.stage==='hold'?'Сохраняй технику и спокойное дыхание.':v2.stage==='rest'?'Отдых идёт автоматически. Следующий подход начнётся после 3–2–1.':v2.stage==='reps'?'Выполни повторения без спешки. Затем отметь подход.':v2.stage==='paused'?'Тренировка на паузе. Отсчёт продолжится по кнопке.':atEnd?'Переход к другому упражнению только вручную.':'Нажми «Начать». Остальные подходы упражнения пойдут автоматически.';
  const digits=['countdown','hold','rest','paused'].includes(v2.stage)?String(Math.max(0,Math.ceil(v2.remaining))):ex.kind==='reps'?String(ex.target):String(ex.target);
  let controls='';
- if(canStart&&!v2.historyReview)controls=`<button class="btn btn-primary btn-wide" data-v2-action="start">▶ Начать упражнение</button>`;
+ if(canStart&&!v2.historyReview)controls=`<button class="btn btn-primary btn-wide" data-v2-action="start">Начать</button>`;
  if(['countdown','hold','rest'].includes(v2.stage))controls=`<button class="btn btn-outline" data-v2-action="pause">Ⅱ Пауза</button>${v2.stage==='hold'?'<button class="btn btn-muted" data-v2-action="early">Завершить раньше</button>':''}`;
- if(v2.stage==='paused')controls='<button class="btn btn-primary btn-wide" data-v2-action="resume">▶ Продолжить</button><button class="btn btn-muted" data-v2-action="abort">Прервать подход</button>';
+ if(v2.stage==='paused')controls='<button class="btn btn-primary btn-wide" data-v2-action="resume">Продолжить</button><button class="btn btn-muted" data-v2-action="abort">Прервать подход</button>';
  if(v2.stage==='reps')controls=`<label class="v2-rep-entry">Повторений <input type="number" inputmode="numeric" id="v2-reps-input" min="1" max="100" value="${ex.target}"></label><button class="btn btn-primary" data-v2-action="reps">✓ Записать</button><button class="btn btn-muted" data-v2-action="abort">Прервать</button>`;
  if(atEnd){
    if(v2.stage==='between'&&!isDone){
      controls='<button class="btn btn-primary btn-wide" data-v2-action="continue-current">▶ Продолжить оставшиеся подходы</button><button class="btn btn-muted" data-v2-action="next">Пропустить остаток и перейти →</button>';
    }else{
-     controls=nextExerciseIndex()<0?'<button class="btn btn-primary btn-wide" data-v2-action="finish">✓ Завершить тренировку</button>':'<button class="btn btn-primary btn-wide" data-v2-action="next">→ Следующее упражнение</button>';
+     controls=nextExerciseIndex()<0?'<button class="btn btn-primary btn-wide" data-v2-action="finish">✓ Завершить тренировку</button>':'<button class="btn btn-primary btn-wide" data-v2-action="next">Следующее</button>';
    }
  }
  if(v2.historyReview)controls='<div class="subtle-card">Открыта запись дневника. Можно исправить результат любого подхода ниже.</div>';
@@ -643,13 +646,13 @@ function workout(){
  const stagePhoto=v2.stage==='rest'?'rest':v2.stage==='hold'?'active':'ready';
  const phaseLabel=ex.id==='hang'?(stagePhoto==='active'?'Лопатки вниз · локти прямые':stagePhoto==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены'):esc(data.cue);
  const firstAction=controls;
- return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">← К программе</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
- <div class="rc5-heading rc6-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><button type="button" class="rc6-picker-trigger" data-rc6-picker="toggle" aria-expanded="${rc6PickerOpen}" aria-controls="rc6-picker-list" ${active?'disabled':''}>${state.exerciseIndex+1} из ${p.items.length}<span class="rc6-chevron ${rc6PickerOpen?'up':''}" aria-hidden="true"></span></button></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span></div>${rc6PickerOpen?`<div class="rc6-picker-list" id="rc6-picker-list" role="listbox" aria-label="Выбор упражнения">${p.items.map((item,i)=>`<button type="button" role="option" aria-selected="${i===state.exerciseIndex}" class="rc6-picker-row ${i===state.exerciseIndex?'selected':''}" data-v2-ex="${i}"><span class="rc6-picker-number">${i+1}</span><span class="rc6-picker-name">${esc(LIB[item.id].name)}</span>${i===state.exerciseIndex?'<span class="rc6-picker-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div>`:''}</div>
- <article class="workout-card v2-workout rc5-workout">
+ return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">${v2.historyReview?'← В дневник':'← К программе'}</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
+ <div class="rc5-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><button class="rc7-picker-trigger" data-rc7-picker="toggle" aria-expanded="${rc7PickerOpen}" ${active?'disabled':''}>${state.exerciseIndex+1} из ${p.items.length}<span class="rc7-chevron ${rc7PickerOpen?'up':''}"></span></button></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span></div>${rc7PickerOpen?`<div class="rc7-picker-list" role="listbox" aria-label="Выбор упражнения">${p.items.map((item,i)=>`<button class="rc7-picker-row ${i===state.exerciseIndex?'selected':''}" role="option" aria-selected="${i===state.exerciseIndex}" data-v2-ex="${i}"><span class="rc7-picker-number">${i+1}</span><span class="rc7-picker-name">${esc(LIB[item.id].name)}</span>${i===state.exerciseIndex?'<span class="rc7-check">✓</span>':''}</button>`).join('')}</div>`:''}</div>
+ <article class="workout-card v2-workout rc5-workout ${v2.historyReview?'rc7-history-review':''}">
  <div class="v23-tech"><button class="v23-tech-photo" data-rc5="tech" aria-label="Открыть технику упражнения">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${stagePhoto}.webp" alt="${esc(data.name)}: ${stagePhoto}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button></div>
  <div class="rc5-caption"><span id="v23-tech-label">${phaseLabel}</span><span>${state.exerciseIndex+1} / ${p.items.length}</span></div>
- <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':String(digits).padStart(2,'0').replace(/^(\d\d)$/,'00:$1')}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
- <div class="rc5-actions"><button data-rc5="sound" aria-label="${v2.sound?'Выключить':'Включить'} звук">${v2.sound?'◖))':'◖×'}</button><button data-rc5="tech" aria-label="Техника упражнения">ⓘ</button><button data-rc5="menu" aria-label="Дополнительные действия">•••</button></div>
+ <section class="v2-machine rc5-machine"><div class="eyebrow" id="v2-stage">${machineTitle()}</div><div class="v2-digits"><strong id="v2-clock">${atEnd?'✓':rc7Time(Number(digits))}</strong></div><div class="v2-controls">${firstAction}</div><div class="v24-timeline" role="progressbar" aria-label="Прогресс текущей фазы"><span id="v24-progress"></span></div></section>
+ <div class="rc5-actions"><button data-rc5="sound" aria-label="${v2.sound?'Выключить':'Включить'} звук">${rc7Icon(v2.sound?'sound':'mute')}</button><button data-rc5="tech" aria-label="Техника упражнения">${rc7Icon('info')}</button><button data-rc5="menu" aria-label="Дополнительные действия">${rc7Icon('more')}</button></div>
  <div class="rc5-advanced" id="rc5-advanced">
  <details class="v23-settings"><summary>⚙ Настройки тренировки</summary><div class="screen-mode-card"><div class="mode-heading">Режим экрана</div><div class="mode-options"><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="awake" ${bg2.mode==='awake'?'checked':''}> <span><strong>Экран включён</strong><small>Попытка не давать экрану погаснуть через Wake Lock. Нужен HTTPS.</small></span></label><label class="mode-choice"><input type="radio" name="screen-mode" data-v2-setting="screen" value="locked" ${bg2.mode==='locked'?'checked':''}> <span><strong>Экран можно выключить · экспериментально</strong><small>Экспериментальный аудиотаймер со звуковыми сигналами. Русский голос при блокировке не гарантируется.</small></span></label></div><p class="mode-status" id="v21-mode-status">${screenModeStatus()}</p><button type="button" class="text-link" data-v2-action="test-voice">▶ Проверить голос устройства</button><p class="fine-print" id="voice-availability">${voiceAvailability()}</p></div>
  <div class="v2-quick-row"><label class="v2-check"><input type="checkbox" data-v2-setting="sound" ${v2.sound?'checked':''}> Звуки</label><label class="v2-check"><input type="checkbox" data-v2-setting="voice" ${v2.voice?'checked':''}> Голос устройства (если доступен)</label><label class="v2-rest">Отдых <select data-v2-setting="rest"><option value="30" ${v2.rest===30?'selected':''}>30 c</option><option value="45" ${v2.rest===45?'selected':''}>45 c</option><option value="60" ${v2.rest===60?'selected':''}>60 c</option><option value="90" ${v2.rest===90?'selected':''}>90 c</option><option value="120" ${v2.rest===120?'selected':''}>120 c</option></select></label></div>
@@ -704,7 +707,7 @@ function history(){
 const oldShell=shell;
 shell=function(content){
  const nav=[['home','Сегодня','⌂'],['plan','Программа','▦'],['history','Дневник','▥'],['account','Аккаунт','◉']];
- return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА <small class="v2-brand-number">2.3 RC5</small></span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
+ return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА</span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());};
 navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
@@ -717,22 +720,23 @@ finishWorkout=function(){const s=currentSession(),pg=selectedProgress();if(!s||p
 };
 // События захватываются до обработчиков версии 1.0, чтобы поведение было единым.
 function rc5Close(){document.getElementById('rc5-modal')?.remove();}
-function rc5Modal(title,body){rc5Close();const el=document.createElement('div');el.id='rc5-modal';el.className='rc5-modal';el.innerHTML=`<div class="rc5-scrim" data-rc5-close></div><section class="rc5-sheet" role="dialog" aria-modal="true" aria-label="${title}"><header><strong>${title}</strong><button data-rc5-close aria-label="Закрыть">×</button></header>${body}</section>`;document.body.appendChild(el);document.body.classList.add('rc5-modal-open');el.querySelector('[data-rc5-close]')?.focus();}
+function rc5Modal(title,body,back=false){rc5Close();const el=document.createElement('div');el.id='rc5-modal';el.className='rc5-modal';el.innerHTML=`<div class="rc5-scrim" data-rc5-close></div><section class="rc5-sheet" role="dialog" aria-modal="true" aria-label="${title}"><header>${back?'<button class="rc7-back" data-rc7-back aria-label="Назад к действиям">← Действия</button>':''}<strong>${title}</strong><button data-rc5-close aria-label="Закрыть">×</button></header>${body}</section>`;document.body.appendChild(el);document.body.classList.add('rc5-modal-open');el.querySelector('[data-rc5-close]')?.focus();}
 function rc5Dismiss(){rc5Close();document.body.classList.remove('rc5-modal-open');}
 function rc5Tech(tab='ready'){
  const ex=selectedPlan().items[state.exerciseIndex],data=LIB[ex.id];
  const tabs=[['rest','Отдых'],['ready','Старт'],['active','Фиксация']];
- const photo=ex.id==='hang'?`<img src="./media/hang-${tab}.webp" alt="${tab}">`:`<div class="rc5-modal-diagram">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`;
+ const photo=ex.id==='hang'?`<img src="./media/hang-${tab}.webp" alt="${esc(data.name)}: ${tabs.find(x=>x[0]===tab)[1]}">`:`<div class="rc5-modal-diagram">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`;
  const copy=tab==='rest'?'Естественное расслабленное положение между подходами.':tab==='ready'?'Подготовься к упражнению, проверь опору и положение тела.':esc(data.instruction);
- rc5Modal('Техника · '+esc(data.name),`<div class="rc5-tabs">${tabs.map(([key,label])=>`<button data-rc5-tab="${key}" class="${key===tab?'selected':''}">${label}</button>`).join('')}</div><div class="rc5-modal-photo">${photo}</div><h3>${tabs.find(x=>x[0]===tab)[1]}</h3><p>${copy}</p><p class="rc5-cue">${esc(data.cue)}</p><details><summary>Частые ошибки и облегчение</summary><ul>${(ERRORS[ex.id]||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p>${esc(data.fallback)}</p></details>`);
+ rc5Modal('Техника · '+esc(data.name),`<div class="rc5-tabs">${tabs.map(([key,label])=>`<button data-rc5-tab="${key}" class="${key===tab?'selected':''}">${label}</button>`).join('')}</div><div class="rc5-modal-photo">${photo}</div><h3>${tabs.find(x=>x[0]===tab)[1]}</h3><p>${copy}</p><p class="rc5-cue">${esc(data.cue)}</p><h3>Частые ошибки</h3><ul class="rc7-errors">${(ERRORS[ex.id]||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><p class="rc7-easier">Если сложно: ${esc(data.fallback)}</p>`);
 }
 function rc5Menu(){
  const advanced=document.getElementById('rc5-advanced');
  rc5Modal('Действия',`<div class="rc5-menu-actions"><button data-rc5="settings">⚙ Настройки тренировки <span>›</span></button><button data-rc5="edit">✎ Исправить результат <span>›</span></button><button data-rc5="finish">⚑ Завершить тренировку <span>›</span></button></div>`);
 }
 document.addEventListener('click',ev=>{
- const b=ev.target.closest('[data-rc5],[data-rc5-close],[data-rc5-tab]');if(!b)return;
+ const b=ev.target.closest('[data-rc5],[data-rc5-close],[data-rc5-tab],[data-rc7-back]');if(!b)return;
  if(b.hasAttribute('data-rc5-close')){rc5Dismiss();return;}
+ if(b.hasAttribute('data-rc7-back')){rc5Menu();return;}
  if(b.dataset.rc5Tab){rc5Tech(b.dataset.rc5Tab);return;}
  switch(b.dataset.rc5){
  case 'tech':if(['countdown','hold','rest'].includes(v2.stage))pauseMachine();rc5Tech(v2.stage==='hold'?'active':v2.stage==='rest'?'rest':'ready');break;
@@ -740,20 +744,20 @@ document.addEventListener('click',ev=>{
  case 'sound':if(['countdown','hold','rest'].includes(v2.stage)){toast('Звук можно изменить после остановки отсчёта.');break;}v2.sound=!v2.sound;updateMachineSettings();render();break;
  case 'settings':case 'edit':{
    const selector=b.dataset.rc5==='settings'?'.v23-settings':'.v2-edit';const source=document.querySelector('#rc5-advanced '+selector);
-   const html=source?source.innerHTML:'Настройки недоступны';rc5Modal(b.dataset.rc5==='settings'?'Настройки тренировки':'Исправить результат',`<div class="rc5-modal-settings">${html}</div>`);break;
+   const html=source?source.innerHTML:'Настройки недоступны';rc5Modal(b.dataset.rc5==='settings'?'Настройки тренировки':'Исправить результат',`<div class="rc5-modal-settings">${html}</div>`,true);break;
  }
  case 'finish':rc5Dismiss();finishWorkout();break;
  }
 },false);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')rc5Dismiss();});
 document.addEventListener('click',ev=>{
- const b=ev.target.closest('[data-rc6-picker],[data-v2-action],[data-v2-ex],[data-v2-slot],[data-v2-study],[data-v2-scene],[data-open-session]');if(!b)return;
+ const b=ev.target.closest('[data-rc7-picker],[data-v2-action],[data-v2-ex],[data-v2-slot],[data-v2-study],[data-v2-scene],[data-open-session]');if(!b)return;
  ev.preventDefault();ev.stopImmediatePropagation();
- if(b.dataset.rc6Picker==='toggle'){if(['countdown','hold','rest','reps'].includes(v2.stage))return;rc6PickerOpen=!rc6PickerOpen;render();return;}
+ if(b.dataset.rc7Picker==='toggle'){if(['countdown','hold','rest','reps'].includes(v2.stage))return;rc7PickerOpen=!rc7PickerOpen;render();return;}
  if(b.dataset.v2Study){switchToStudy(b.dataset.v2Study,state.screen==='workout'?'workout':'plan');return;}
  if(b.dataset.v2Scene){v2.studyBad=b.dataset.v2Scene==='wrong';render();return;}
  if(b.dataset.openSession){const s=state.sessions.find(x=>x.id===b.dataset.openSession);if(s)openWorkout(s.week,s.day,{sessionId:s.id,origin:'history'});return;}
- if(b.dataset.v2Ex!==undefined){rc6PickerOpen=false;if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала приостанови или закончи текущий подход.');return;}state.exerciseIndex=Number(b.dataset.v2Ex);state.slotIndex=getNextSlot(selectedPlan().items[state.exerciseIndex],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();return;}
+ if(b.dataset.v2Ex!==undefined){rc7PickerOpen=false;if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала приостанови или закончи текущий подход.');return;}state.exerciseIndex=Number(b.dataset.v2Ex);state.slotIndex=getNextSlot(selectedPlan().items[state.exerciseIndex],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();return;}
  if(b.dataset.v2Slot!==undefined){if(['countdown','hold','rest','reps'].includes(v2.stage))return;state.slotIndex=Number(b.dataset.v2Slot);render();return;}
  switch(b.dataset.v2Action){
  case 'start':startApproaches();break;
@@ -772,7 +776,7 @@ document.addEventListener('click',ev=>{
  }
  case 'study-current':switchToStudy(selectedPlan().items[state.exerciseIndex].id,'workout');break;
  case 'back-to-training':navigate(v2.screenBeforeStudy==='workout'?'workout':'plan');break;
- case 'edit-set':{if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала поставьте тренировку на паузу.');break;}const value=$('#v2-actual')?.value;if(!value||Number(value)<1){toast('Введите положительное число.');break;}persistSet(value);render();toast('Исправление сохранено.');break;}
+ case 'edit-set':{if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала поставьте тренировку на паузу.');break;}const value=document.querySelector('#rc5-modal #v2-actual')?.value||$('#v2-actual')?.value;if(!value||Number(value)<1){toast('Введите положительное число.');break;}persistSet(value);render();toast('Исправление сохранено.');break;}
  case 'finish':finishWorkout();break;
  }
 },true);

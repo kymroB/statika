@@ -183,18 +183,26 @@ body:has(.rc5-workout) .bottom-nav{padding:8px 3px calc(8px + env(safe-area-inse
 .rc5-modal-open{overflow:hidden}
 @media(max-height:740px){body:has(.rc5-workout) .v23-tech-photo img{height:clamp(160px,29dvh,240px)!important}.rc5-caption{margin:6px 0 9px}body:has(.rc5-workout) .rc5-machine{padding:13px!important}.rc5-actions{margin:9px 0 0}}
 
-/* RC6 approved spacious exercise picker; other RC5 components untouched. */
-.rc6-heading{position:relative;z-index:8}
-.rc6-picker-trigger{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:13px;min-width:105px;min-height:42px;padding:7px 15px;border:1.5px solid #82dfca;border-radius:999px;background:transparent;color:#f4f4f3;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer}
-.rc6-picker-trigger:disabled{opacity:.48;cursor:not-allowed}
-.rc6-chevron{width:10px;height:10px;border-right:2px solid #82dfca;border-bottom:2px solid #82dfca;transform:rotate(45deg) translateY(-2px)}
-.rc6-chevron.up{transform:rotate(225deg) translateY(-2px)}
-.rc6-picker-list{position:absolute;top:calc(100% + 9px);left:0;right:0;z-index:25;padding:12px 13px;border:1px solid #515859;border-radius:20px;background:#242729;box-shadow:0 16px 38px #0009}
-.rc6-picker-row{display:flex;align-items:center;width:100%;min-height:58px;gap:17px;padding:9px 14px;background:transparent;border:0;border-bottom:1px solid #4b5152;color:#f5f5f5;text-align:left;font-size:16px;font-weight:500;cursor:pointer}
-.rc6-picker-row:last-child{border-bottom:0}
-.rc6-picker-row.selected{background:#86dfcb;color:#102322;border-radius:13px;border-bottom-color:transparent;font-weight:750}
-.rc6-picker-number{display:grid;place-items:center;flex:none;width:37px;height:37px;border-radius:50%;background:#4a4d4f;color:#fff;font-size:18px;font-weight:650}
-.rc6-picker-row.selected .rc6-picker-number{background:#202427}
-.rc6-picker-name{flex:1;min-width:0}
-.rc6-picker-check{font-size:26px;font-weight:750}
-@media(max-width:360px){.rc6-picker-row{gap:11px;padding:8px 10px;font-size:14px}.rc6-picker-list{padding:9px}}
+/* RC7 approved workout UI */
+.rc5-heading{position:relative;z-index:9}
+.rc7-picker-trigger{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:13px;min-height:42px;padding:7px 14px;border:1px solid #86dfcb;border-radius:30px;background:transparent;color:#f2f3f1;font-size:14px;font-weight:600;white-space:nowrap}
+.rc7-picker-trigger:disabled{opacity:.5}
+.rc7-chevron{display:inline-block;width:9px;height:9px;border-right:2px solid #86dfcb;border-bottom:2px solid #86dfcb;transform:rotate(45deg) translateY(-2px)}
+.rc7-chevron.up{transform:rotate(225deg) translateY(-2px)}
+.rc7-picker-list{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 10px);background:#242729;border:1px solid #4c5454;border-radius:20px;padding:12px;box-shadow:0 16px 40px #000b}
+.rc7-picker-row{display:flex;align-items:center;gap:16px;width:100%;min-height:62px;padding:10px 13px;background:transparent;border:0;border-bottom:1px solid #484d4d;color:#f4f4f4;text-align:left;font-size:15px}
+.rc7-picker-row:last-child{border-bottom:0}.rc7-picker-row.selected{background:#86dfcb;color:#102522;border-radius:13px;font-weight:750;border-bottom-color:transparent}
+.rc7-picker-number{flex:none;display:grid;place-items:center;width:37px;height:37px;border-radius:50%;background:#454a4a;color:white;font-size:17px;font-weight:700}.rc7-picker-row.selected .rc7-picker-number{background:#202525}.rc7-picker-name{flex:1}.rc7-check{font-size:23px}
+.rc5-actions svg{width:21px;height:21px;display:block}.rc5-actions button{width:46px;height:46px}
+body:has(.rc5-workout) .rc5-machine .v2-controls .btn{white-space:nowrap}
+.rc5-sheet>header .rc7-back{font-size:13px;color:#86dfcb;margin-right:auto;white-space:nowrap}.rc5-sheet>header:has(.rc7-back) strong{font-size:15px}
+.rc7-errors{list-style:none;padding-left:0}.rc7-errors li:before{content:'×';color:#f07b70;font-weight:700;margin-right:9px}
+.rc7-easier{border-top:1px solid #4a4e4e;padding-top:10px}
+@media(max-width:365px){.rc7-picker-row{gap:10px;padding:9px 8px;font-size:14px}.rc7-picker-list{padding:9px}.rc5-sheet>header:has(.rc7-back) strong{font-size:13px}}
+
+/* Diary-origin review: keep timer from colliding with its explanation */
+body:has(.rc7-history-review) .rc5-machine{display:block!important;min-width:0!important}
+body:has(.rc7-history-review) .rc5-machine .v2-digits{display:none!important}
+body:has(.rc7-history-review) .rc5-machine .v2-controls{display:block!important;width:100%;max-width:100%;overflow-wrap:anywhere}
+body:has(.rc7-history-review) .rc5-machine .v24-timeline{display:none!important}
+body:has(.rc7-history-review) .rc5-machine .subtle-card{max-width:100%;overflow-wrap:anywhere;font-size:13px}

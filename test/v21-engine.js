@@ -108,7 +108,7 @@ function reconcileRecordedTrack(checkStall=false){
    v2.remaining=Math.max(0,event.end-effectiveTime);
    if(['countdown','hold','rest'].includes(event.phase))state.slotIndex=event.slot;
    bg2.currentPhase=event;
-   if(bg2.mode==='awake' && v2.voice && !bg2.player){
+   if(bg2.mode==='awake' && v2.voice){
     if(event.phase==='countdown')speak('Приготовься');
     if(event.phase==='hold')speak('Начали');
     if(event.phase==='rest')speak('Отдых');
