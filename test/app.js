@@ -619,7 +619,7 @@ function resumeMachine(){
   bg2.player.play().then(()=>{if(bg2.mode==='awake')requestScreenLock();startMediaTick();reconcileRecordedTrack();}).catch(()=>{v2.stage='paused';toast('Браузер не разрешил продолжить аудио. Попробуй нажать ещё раз.');render();});
   render();return;
  }
- const phase=v2.stageBefore||'countdown';v2.stageBefore=null;machinePhase(phase,v2.remaining);if(bg2.mode==='awake')requestScreenLock();
+ const phase=v2.stageBefore||'countdown';v2.stageBefore=null;v2.stage=phase;v2.deadline=Date.now()+1000*v2.remaining;v2.lastCount=Math.ceil(v2.remaining)+1;if(v2.interval)clearInterval(v2.interval);v2.interval=setInterval(machineTick,100);if(bg2.mode==='awake')requestScreenLock();render();
 }
 function earlyEnd(){
  if(v2.stage!=='hold')return;
@@ -697,7 +697,7 @@ function home(){
  return `${heading('МОЯ ТРЕНИРОВОЧНАЯ ПРОГРАММА','Сильнее. Спокойнее. Точнее.','12 недель калистеники. Обучение технике и тренировки с автоматическим отсчётом.')}
  <section class="hero"><div class="hero-tag">ТЕКУЩИЙ ЭТАП</div><h2>Неделя ${w} <span>/ 12</span></h2><div class="hero-sub">${esc(PHASES.find(p=>w>=p.from&&w<=p.to).label)} · 3 занятия в неделю</div><div class="meter"><span style="width:${Math.round(weeks/12*100)}%"></span></div><div class="hero-footer"><span>${weeks} из 12 недель полностью пройдено</span><span>${Math.round(weeks/12*100)}%</span></div></section>
  <div class="two-stats"><div class="stat"><div class="stat-value">${done}</div><div class="stat-label">Сессий завершено</div></div><div class="stat"><div class="stat-value">${Math.round(unique/36*100)}%</div><div class="stat-label">Из 36 занятий закрыто</div></div></div>
- <div class="v2-mode-cards"><button data-nav="plan"><span>▦</span><strong>Программа</strong><small>Все 12 недель и 36 занятий</small></button></div>
+ <div class="v2-mode-cards"><button data-nav="plan"><span>▦</span><strong>Тренировки</strong><small>Все 12 недель и 36 занятий</small></button></div>
  <div class="section-title"><h2>Неделя ${w}</h2><button class="text-link" data-nav="plan">Все недели ↗</button></div><div class="day-list">${[1,2,3].map(d=>{const p=plan(w,d),st=statusOf(w,d);return `<button class="day-card" data-start="${w}:${d}"><div class="day-num">0${d}</div><div class="day-info"><strong>${esc(p.title)}</strong><span>${esc(p.subtitle)}</span><div class="day-meta">${p.items.length} упражнений · 25–35 мин</div></div><span class="state-label ${st.kind==='full'?'finished':''}">${st.label} →</span></button>`;}).join('')}</div>
  <div class="note-card"><strong>Как устроена автоматическая тренировка</strong><p>Начни упражнение вручную. Затем приложение отсчитает 3–2–1 и проведёт подходы с отдыхом. Следующее упражнение включается только по твоей команде.</p></div>`;
 }
@@ -707,7 +707,7 @@ function planView(){
  <div class="phase-card"><div class="eyebrow">НЕДЕЛИ ${phase.from}–${phase.to}</div><h2>${esc(phase.label)}</h2><p>${esc(phase.sub)}</p></div>
  ${[1,2,3].map(d=>{const p=plan(w,d),st=statusOf(w,d);return `<article class="plan-card"><div class="plan-header"><div><div class="eyebrow">ДЕНЬ ${d}</div><h3>${esc(p.title)}</h3><p class="muted">${esc(p.subtitle)}</p></div><span class="tag ${st.kind==='full'?'done':''}">${st.label}</span></div>
  <div class="plan-exercises">${p.items.map(x=>`<button class="plan-exercise v2-ex-preview" data-v2-study="${x.id}"><span>${esc(LIB[x.id].name)}</span><small>${amountLabel(x)}</small></button>`).join('')}</div>
- <button class="btn btn-light btn-wide" data-start="${w}:${d}">${st.kind==='full'?'Просмотреть / повторить':st.kind==='partial'?'Продолжить неполную тренировку':st.kind==='active'?'Продолжить тренировку':'Начать тренировку'} <span>→</span></button></article>`;}).join('')}
+ ${st.kind==='full'?'':`<button class="btn btn-light btn-wide" data-start="${w}:${d}">${st.kind==='active'?'Продолжить тренировку':'Начать тренировку'} <span>→</span></button>`}</article>`;}).join('')}
  <div class="note-card"><strong>Прогрессия</strong><p>Планы следующих недель доступны для ознакомления. Увеличивай нагрузку только если удержания выполняются с хорошей техникой и без боли. Если нагрузка высока, оставайся на текущем варианте упражнения.</p></div>`;
 }
 function history(){
@@ -858,14 +858,35 @@ function diaryDetail(s){const p=plan(s.week,s.day),completedExercises=diaryCompl
 function history(){const s=state.sessions.find(x=>x.id===diaryOpenedId);if(diaryOpenedId&&!s){diaryOpenedId=null;diaryEditingId=null;}return s?diaryDetail(s):diaryOverview();}
 
 shell=function(content){
- const nav=[['home','Сегодня','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 11 9-8 9 8v10H3z"/></svg>'],['plan','Программа','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>'],['history','Дневник','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>'],['account','Аккаунт','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3-8 8-8s8 3 8 8"/></svg>']];
+ const nav=[['home','Сегодня','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 11 9-8 9 8v10H3z"/></svg>'],['plan','Тренировки','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>'],['history','Дневник','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h8M8 17h5"/></svg>'],['account','Аккаунт','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-5 3-8 8-8s8 3 8 8"/></svg>']];
  return `<div class="app-shell"><header class="topbar"><button class="brand" data-nav="home" aria-label="На главную"><span class="brand-mark">◇</span><span>СТАТИКА</span></button><button class="top-profile" data-nav="account"><span id="sync-status" class="sync-pill ${syncBadge().cls}">${syncBadge().text}</span><span class="avatar">${state.user?'✓':'◌'}</span></button></header><main id="main" class="main">${content}</main><nav class="bottom-nav" aria-label="Разделы">${nav.map(([id,label,glyph])=>`<button data-nav="${id}" class="nav-link ${state.screen===id || (state.screen==='workout'&&v2.origin===id)?'active':''}" aria-current="${state.screen===id?'page':'false'}"><span class="nav-glyph">${glyph}</span><span>${label}</span></button>`).join('')}</nav></div>`;
 };
 render=function(){const screens={home,plan:planView,workout,learn:learning,history,account};$('#app').innerHTML=shell((screens[state.screen]||home)());if(state.timer)timerDisplay();};
-navigate=function(screen){if(screen!=='history'){diaryOpenedId=null;diaryEditingId=null;}if(!['home','plan','workout','learn','history','account'].includes(screen))return;
+const tabPositions={home:{screen:'home',scroll:0},plan:{screen:'plan',scroll:0},history:{screen:'history',scroll:0},account:{screen:'account',scroll:0}};
+let currentTab='home';
+function rememberTab(){if(tabPositions[currentTab]){tabPositions[currentTab].screen=state.screen;tabPositions[currentTab].scroll=window.scrollY||0;}}
+navigate=function(screen){if(!['home','plan','workout','learn','history','account'].includes(screen))return;
  if(state.screen==='workout'&&screen!=='workout'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
  state.screen=screen;render();window.scrollTo({top:0,behavior:'instant'});
+ if(screen==='workout'&&v2.origin==='plan'){currentTab='plan';tabPositions.plan.screen='workout';}
+ if(screen==='plan'||screen==='history'||screen==='home'||screen==='account')currentTab=screen;
 };
+// Bottom tabs restore the last nested screen and scroll position for each section.
+document.addEventListener('click',ev=>{
+ const b=ev.target.closest('.bottom-nav [data-nav]');if(!b)return;
+ ev.preventDefault();ev.stopImmediatePropagation();
+ const target=b.dataset.nav;if(!tabPositions[target])return;
+ if(currentTab===target)return;
+ rememberTab();
+ if(state.screen==='workout'&&['countdown','hold','rest'].includes(v2.stage))pauseMachine();
+ currentTab=target;
+ let dest=tabPositions[target].screen;
+ if(target==='plan'&&!['plan','workout','learn'].includes(dest))dest='plan';
+ if(target==='history')dest='history';
+ if(target==='home')dest='home';
+ if(target==='account')dest='account';
+ state.screen=dest;render();window.scrollTo({top:tabPositions[target].scroll||0,behavior:'instant'});
+},true);
 // RC7.3 diary: distinct read/edit flow, never the timer screen.
 document.addEventListener('click',ev=>{
  const b=ev.target.closest('[data-diary-open],[data-diary-back],[data-diary-resume],[data-diary-edit],[data-diary-save],[data-diary-cancel]');if(!b)return;
