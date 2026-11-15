@@ -98,6 +98,7 @@ const state = {screen:'home',week:1,day:1,user:null,auth:null,sessions:[],pendin
  recovery:false,settings:{supabaseUrl:config.supabaseUrl || BUILTIN.supabaseUrl || '', supabasePublishableKey:config.supabasePublishableKey || BUILTIN.supabasePublishableKey || ''}
 };
 let syncLater = null;
+let rc6PickerOpen = false;
 function configured(){return /^https:\/\/[a-z0-9.-]+\/?$/i.test(state.settings.supabaseUrl.trim()) && /^sb_publishable_[a-zA-Z0-9_\-]+$/.test(state.settings.supabasePublishableKey.trim());}
 function base(){return state.settings.supabaseUrl.trim().replace(/\/$/,'');}
 function apiHeaders(jwt){return {'apikey':state.settings.supabasePublishableKey,'Content-Type':'application/json',...(jwt?{'Authorization':`Bearer ${jwt}`}:{})};}
@@ -612,7 +613,7 @@ function earlyEnd(){
  }
  endApproach(elapsed);
 }
-function afterExercise(){stopRecordedTrack();releaseScreenLock();const n=nextExerciseIndex();if(n<0){v2.stage='done';render();return;}state.exerciseIndex=n;state.slotIndex=getNextSlot(selectedPlan().items[n],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();}
+function afterExercise(){rc6PickerOpen=false;stopRecordedTrack();releaseScreenLock();const n=nextExerciseIndex();if(n<0){v2.stage='done';render();return;}state.exerciseIndex=n;state.slotIndex=getNextSlot(selectedPlan().items[n],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();}
 function switchToStudy(id,from='workout'){if(['countdown','hold','rest'].includes(v2.stage))pauseMachine();v2.studyId=id;v2.studyBad=false;v2.screenBeforeStudy=from;navigate('learn');}
 function updateMachineSettings(){
  safeWrite('statika.v2.sound',v2.sound);safeWrite('statika.v22.voice',v2.voice);safeWrite('statika.v2.rest',v2.rest);
@@ -643,7 +644,7 @@ function workout(){
  const phaseLabel=ex.id==='hang'?(stagePhoto==='active'?'Лопатки вниз · локти прямые':stagePhoto==='rest'?'Отдых · стой под турником':'Свободный вис · плечи расслаблены'):esc(data.cue);
  const firstAction=controls;
  return `<div class="workout-top"><button class="back-btn" data-nav="${v2.historyReview?'history':v2.origin}">← К программе</button><span class="workout-step">НЕДЕЛЯ ${p.week} · ДЕНЬ ${p.day}</span></div>
- <div class="rc5-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><span class="rc5-ex-index">${state.exerciseIndex+1} из ${p.items.length}</span></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span><span class="rc5-dots">${p.items.map((_,i)=>`<button data-v2-ex="${i}" class="${i===state.exerciseIndex?'on':''}" aria-label="Упражнение ${i+1}" ${active?'disabled':''}></button>`).join('')}</span></div></div>
+ <div class="rc5-heading rc6-heading"><span class="rc5-overline">${esc(p.title).toUpperCase()}</span><div class="rc5-titleline"><h1>${esc(data.name)}</h1><button type="button" class="rc6-picker-trigger" data-rc6-picker="toggle" aria-expanded="${rc6PickerOpen}" aria-controls="rc6-picker-list" ${active?'disabled':''}>${state.exerciseIndex+1} из ${p.items.length}<span class="rc6-chevron ${rc6PickerOpen?'up':''}" aria-hidden="true"></span></button></div><div class="rc5-subline"><span>${slotLabel(ex,state.slotIndex)} · ${amountLabel(ex)}</span></div>${rc6PickerOpen?`<div class="rc6-picker-list" id="rc6-picker-list" role="listbox" aria-label="Выбор упражнения">${p.items.map((item,i)=>`<button type="button" role="option" aria-selected="${i===state.exerciseIndex}" class="rc6-picker-row ${i===state.exerciseIndex?'selected':''}" data-v2-ex="${i}"><span class="rc6-picker-number">${i+1}</span><span class="rc6-picker-name">${esc(LIB[item.id].name)}</span>${i===state.exerciseIndex?'<span class="rc6-picker-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div>`:''}</div>
  <article class="workout-card v2-workout rc5-workout">
  <div class="v23-tech"><button class="v23-tech-photo" data-rc5="tech" aria-label="Открыть технику упражнения">${ex.id==='hang'?`<img id="v23-photo" src="./media/hang-${stagePhoto}.webp" alt="${esc(data.name)}: ${stagePhoto}">`:`<div class="v23-tech-fallback">${window.StaticDiagram?window.StaticDiagram(ex.id,false):''}</div>`}</button></div>
  <div class="rc5-caption"><span id="v23-tech-label">${phaseLabel}</span><span>${state.exerciseIndex+1} / ${p.items.length}</span></div>
@@ -746,12 +747,13 @@ document.addEventListener('click',ev=>{
 },false);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape')rc5Dismiss();});
 document.addEventListener('click',ev=>{
- const b=ev.target.closest('[data-v2-action],[data-v2-ex],[data-v2-slot],[data-v2-study],[data-v2-scene],[data-open-session]');if(!b)return;
+ const b=ev.target.closest('[data-rc6-picker],[data-v2-action],[data-v2-ex],[data-v2-slot],[data-v2-study],[data-v2-scene],[data-open-session]');if(!b)return;
  ev.preventDefault();ev.stopImmediatePropagation();
+ if(b.dataset.rc6Picker==='toggle'){if(['countdown','hold','rest','reps'].includes(v2.stage))return;rc6PickerOpen=!rc6PickerOpen;render();return;}
  if(b.dataset.v2Study){switchToStudy(b.dataset.v2Study,state.screen==='workout'?'workout':'plan');return;}
  if(b.dataset.v2Scene){v2.studyBad=b.dataset.v2Scene==='wrong';render();return;}
  if(b.dataset.openSession){const s=state.sessions.find(x=>x.id===b.dataset.openSession);if(s)openWorkout(s.week,s.day,{sessionId:s.id,origin:'history'});return;}
- if(b.dataset.v2Ex!==undefined){if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала приостанови или закончи текущий подход.');return;}state.exerciseIndex=Number(b.dataset.v2Ex);state.slotIndex=getNextSlot(selectedPlan().items[state.exerciseIndex],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();return;}
+ if(b.dataset.v2Ex!==undefined){rc6PickerOpen=false;if(['countdown','hold','rest','reps'].includes(v2.stage)){toast('Сначала приостанови или закончи текущий подход.');return;}state.exerciseIndex=Number(b.dataset.v2Ex);state.slotIndex=getNextSlot(selectedPlan().items[state.exerciseIndex],0);if(state.slotIndex<0)state.slotIndex=0;v2.stage='idle';render();return;}
  if(b.dataset.v2Slot!==undefined){if(['countdown','hold','rest','reps'].includes(v2.stage))return;state.slotIndex=Number(b.dataset.v2Slot);render();return;}
  switch(b.dataset.v2Action){
  case 'start':startApproaches();break;

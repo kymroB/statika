@@ -182,3 +182,19 @@ body:has(.rc5-workout) .bottom-nav{padding:8px 3px calc(8px + env(safe-area-inse
 .rc5-modal-settings .screen-mode-card{margin:0}.rc5-modal-settings .record-line{display:flex;gap:10px;flex-wrap:wrap}
 .rc5-modal-open{overflow:hidden}
 @media(max-height:740px){body:has(.rc5-workout) .v23-tech-photo img{height:clamp(160px,29dvh,240px)!important}.rc5-caption{margin:6px 0 9px}body:has(.rc5-workout) .rc5-machine{padding:13px!important}.rc5-actions{margin:9px 0 0}}
+
+/* RC6 approved spacious exercise picker; other RC5 components untouched. */
+.rc6-heading{position:relative;z-index:8}
+.rc6-picker-trigger{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:13px;min-width:105px;min-height:42px;padding:7px 15px;border:1.5px solid #82dfca;border-radius:999px;background:transparent;color:#f4f4f3;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer}
+.rc6-picker-trigger:disabled{opacity:.48;cursor:not-allowed}
+.rc6-chevron{width:10px;height:10px;border-right:2px solid #82dfca;border-bottom:2px solid #82dfca;transform:rotate(45deg) translateY(-2px)}
+.rc6-chevron.up{transform:rotate(225deg) translateY(-2px)}
+.rc6-picker-list{position:absolute;top:calc(100% + 9px);left:0;right:0;z-index:25;padding:12px 13px;border:1px solid #515859;border-radius:20px;background:#242729;box-shadow:0 16px 38px #0009}
+.rc6-picker-row{display:flex;align-items:center;width:100%;min-height:58px;gap:17px;padding:9px 14px;background:transparent;border:0;border-bottom:1px solid #4b5152;color:#f5f5f5;text-align:left;font-size:16px;font-weight:500;cursor:pointer}
+.rc6-picker-row:last-child{border-bottom:0}
+.rc6-picker-row.selected{background:#86dfcb;color:#102322;border-radius:13px;border-bottom-color:transparent;font-weight:750}
+.rc6-picker-number{display:grid;place-items:center;flex:none;width:37px;height:37px;border-radius:50%;background:#4a4d4f;color:#fff;font-size:18px;font-weight:650}
+.rc6-picker-row.selected .rc6-picker-number{background:#202427}
+.rc6-picker-name{flex:1;min-width:0}
+.rc6-picker-check{font-size:26px;font-weight:750}
+@media(max-width:360px){.rc6-picker-row{gap:11px;padding:8px 10px;font-size:14px}.rc6-picker-list{padding:9px}}
