@@ -709,7 +709,7 @@ function planView(){
  <div class="note-card"><strong>Прогрессия</strong><p>Планы следующих недель доступны для ознакомления. Увеличивай нагрузку только если удержания выполняются с хорошей техникой и без боли. Если нагрузка высока, оставайся на текущем варианте упражнения.</p></div>`;
 }
 function history(){
- const all=state.sessions.filter(diaryHasRecordedSets).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at)),completed=all.filter(s=>s.completed);
+ const all=state.sessions.filter(diaryHasRecordedSets).sort((a,b)=>(a.week-b.week)||(a.day-b.day)||(new Date(a.performed_at)-new Date(b.performed_at))),completed=all.filter(s=>s.completed);
  const total=all.reduce((sum,s)=>sum+progress(s).done,0);
  const bars=Array.from({length:12},(_,i)=>({w:i+1,c:[1,2,3].filter(d=>statusOf(i+1,d).kind==='full').length}));
  return `${heading('МОЙ ПРОГРЕСС','Дневник тренировок','История подходов, завершённые и частично выполненные занятия.')}
@@ -838,7 +838,7 @@ function diaryLabel(s){return diaryFull(s)?'Завершено':s.completed?'З�
 function diaryCard(s){const p=plan(s.week,s.day),completedExercises=diaryCompletedCount(s),sp=diarySetProgress(s),pct=sp.pct,full=diaryFull(s);
  return `<button type="button" class="diary-card ${!full?'diary-incomplete':''}" data-diary-open="${s.id}"><span class="diary-status-icon ${full?'complete':''}">${full?'✓':'◔'}</span><span class="diary-card-body"><span class="diary-card-title">День ${s.day} · ${esc(p.title)}</span><span class="diary-card-detail">Выполнено ${sp.done} из ${sp.total} подходов</span><span class="diary-meter"><span style="width:${pct}%"></span></span></span><span class="diary-card-side"><span class="diary-tag ${full?'done':''}">${diaryLabel(s)}</span><span class="diary-pct">${pct}%</span></span><span class="diary-arrow">›</span></button>`;
 }
-function diaryOverview(){const all=state.sessions.filter(diaryHasRecordedSets).sort((a,b)=>new Date(b.performed_at)-new Date(a.performed_at));const full=all.filter(s=>s.completed||diaryFull(s)).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
+function diaryOverview(){const all=state.sessions.filter(diaryHasRecordedSets).sort((a,b)=>(a.week-b.week)||(a.day-b.day)||(new Date(a.performed_at)-new Date(b.performed_at)));const full=all.filter(s=>s.completed||diaryFull(s)).length,partial=all.length-full,sets=all.reduce((a,s)=>a+progress(s).done,0);
  const groups=new Map();for(const s of all){if(!groups.has(s.week))groups.set(s.week,[]);groups.get(s.week).push(s);}
  return `<section class="diary-screen"><div class="diary-heading"><h1>Дневник</h1><button class="diary-export" data-action="export" type="button" title="Скачать резервную копию">Экспорт ↧</button></div><div class="diary-stats"><div><span>Завершено</span><strong>${full}</strong></div><div><span>В процессе</span><strong>${partial}</strong></div><div><span>Всего подходов</span><strong>${sets}</strong></div></div>${all.length?[...groups.entries()].map(([week,entries])=>`<section class="diary-week"><h2>НЕДЕЛЯ ${week}</h2>${entries.map(diaryCard).join('')}</section>`).join(''):`<div class="empty"><h3>Пока нет записей</h3><p>Результаты появятся после первого сохранённого подхода.</p><button class="btn btn-primary" data-start="1:1">Начать тренировку</button></div>`}</section>`;
 }
